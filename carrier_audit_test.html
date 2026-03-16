@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>🧪 Carrier Audit Tool — Unit Tests</title>
+<style>
+:root{--bg:#0f172a;--card:#1e293b;--border:#334155;--fg:#f1f5f9;--pass:#22c55e;--fail:#ef4444;--warn:#f59e0b;--muted:#94a3b8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'SF Mono','Fira Code',monospace;background:var(--bg);color:var(--fg);padding:24px;min-height:100vh}
+h1{font-size:20px;margin-bottom:4px}
+.subtitle{color:var(--muted);font-size:12px;margin-bottom:20px}
+.summary{display:flex;gap:12px;margin-bottom:20px}
+.summary-card{padding:12px 16px;border-radius:8px;border:1px solid var(--border);background:var(--card);min-width:100px;text-align:center}
+.summary-card .val{font-size:24px;font-weight:800}
+.summary-card .lbl{font-size:10px;color:var(--muted);margin-top:2px}
+.pass-card .val{color:var(--pass)} .fail-card .val{color:var(--fail)} .total-card .val{color:var(--warn)}
+.section{margin-bottom:16px}
+.section-title{font-size:13px;font-weight:700;color:var(--warn);margin-bottom:8px;padding:6px 10px;background:rgba(245,158,11,0.1);border-radius:6px;display:inline-block}
+.test{display:flex;align-items:center;gap:8px;padding:8px 12px;border-radius:6px;margin-bottom:4px;font-size:12px;background:var(--card);border:1px solid var(--border)}
+.test.pass{border-left:3px solid var(--pass)}
+.test.fail{border-left:3px solid var(--fail)}
+.test .icon{font-size:14px;flex-shrink:0}
+.test .name{flex:1;font-weight:600}
+.test .detail{color:var(--muted);font-size:11px;margin-left:8px;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.test.fail .detail{color:var(--fail)}
+.run-btn{background:var(--warn);color:#000;border:none;padding:10px 20px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;margin-bottom:20px}
+.run-btn:hover{opacity:0.9}
+.timestamp{color:var(--muted);font-size:11px;margin-top:16px}
+</style>
+</head>
+<body>
+
+<h1>🧪 Carrier Audit Tool — Unit Tests</h1>
+<p class="subtitle">Automated tests for total fee comparison logic, column mapping, and reconciliation</p>
+
+<button class="run-btn" onclick="runAllTests()">▶ Run All Tests</button>
+
+<div class="summary" id="summary"></div>
+<div id="test-results"></div>
+<div class="timestamp" id="timestamp"></div>
+
+<script src="carrier_audit_core.js"></script>
+<script>
+// ═══════════════════════════════════════════
+//  TEST FRAMEWORK
+// ═══════════════════════════════════════════
+const tests = [];
+let totalPass = 0, totalFail = 0;
+
+function describe(section, fn) {
+  tests.push({ section, tests: [] });
+  fn();
+}
+function it(name, fn) {
+  const section = tests[tests.length - 1];
+  try {
+    fn();
+    section.tests.push({ name, pass: true });
+    totalPass++;
+  } catch (e) {
+    section.tests.push({ name, pass: false, detail: e.message });
+    totalFail++;
+  }
+}
+function assert(condition, msg) {
+  if (!condition) throw new Error(msg || 'Assertion failed');
+}
+function assertEqual(actual, expected, msg) {
+  if (actual !== expected) throw new Error((msg ? msg + ': ' : '') + `expected ${expected}, got ${actual}`);
+}
+function assertClose(actual, expected, tolerance, msg) {
+  if (Math.abs(actual - expected) > tolerance) throw new Error((msg ? msg + ': ' : '') + `expected ~${expected} (±${tolerance}), got ${actual}`);
+}
+
+// ═══════════════════════════════════════════
+//  USE SHARED CORE MODULE (no more mirrored copies!)
+// ═══════════════════════════════════════════
+const { reconcile, smartDetect, mergeHints, buildExportRow, FEE_FIELDS, TOTAL_FEE_FIELDS } = AuditCore;
+
+// ═══════════════════════════════════════════
+//  TEST SUITES
+// ═══════════════════════════════════════════
+
+function runAllTests() {
+  tests.length = 0;
+  totalPass = 0;
+  totalFail = 0;
+
+  // ────────────────────────────────
+  // 1. TOTAL FEE EXCLUDES COD
+  // ────────────────────────────────
+  describe('Total Fee Calculation (COD Exclusion)', () => {
+    const cMap = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+    const bMap = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+
+    it('cTotal should NOT include COD fee', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 50, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 50, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].c_total, 100, 'cTotal should be 100 (shipping only, no COD)');
+    });
+
+    it('bTotal should NOT include COD fee', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 50, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 30, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].b_total, 100, 'bTotal should be 100 (shipping only, no COD)');
+    });
+
+    it('COD difference should NOT affect status (same shipping fees)', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 999, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 1, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'ok', 'Should be OK since shipping fees match');
+    });
+
+    it('COD stored individually but excluded from total', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 200, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 150, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].c_cod_fee, 200, 'Carrier COD should be stored');
+      assertEqual(results[0].b_cod_fee, 150, 'Boxme COD should be stored');
+      assertEqual(results[0].d_cod_fee, 50, 'COD diff should be calculated');
+      assertEqual(results[0].status, 'ok', 'But status only cares about non-COD total');
+    });
+
+    it('Large COD diff with matching shipping = OK status', () => {
+      const cData = [{ TK: 'T1', Ship: 50, COD: 10000, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 50, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'ok');
+      assertEqual(results[0].d_cod_fee, 10000);
+    });
+  });
+
+  // ────────────────────────────────
+  // 2. STATUS DETERMINATION
+  // ────────────────────────────────
+  describe('Status Determination', () => {
+    const cMap = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+    const bMap = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+
+    it('status = "ok" when total diff within tolerance', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'ok');
+    });
+
+    it('status = "carrier_over" when carrier total > boxme total', () => {
+      const cData = [{ TK: 'T1', Ship: 150, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'carrier_over');
+    });
+
+    it('status = "boxme_over" when boxme total > carrier total', () => {
+      const cData = [{ TK: 'T1', Ship: 80, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 120, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'boxme_over');
+    });
+
+    it('status = "missing" when no Boxme match found', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T999', Ship: 100, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'missing');
+    });
+
+    it('tolerance = 0 means exact match needed', () => {
+      const cData = [{ TK: 'T1', Ship: 100.01, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100.00, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap, 0);
+      assertEqual(results[0].status, 'carrier_over');
+    });
+
+    it('tolerance edge case: diff exactly at tolerance boundary', () => {
+      const cData = [{ TK: 'T1', Ship: 100.01, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap, 0.01);
+      assertEqual(results[0].status, 'ok', 'At exact tolerance boundary should be ok');
+    });
+  });
+
+  // ────────────────────────────────
+  // 3. TRACKING NUMBER MATCHING
+  // ────────────────────────────────
+  describe('Tracking Number Matching', () => {
+    const cMap = { tracking: 'TK', bm_number: 'BM', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+    const bMap = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+
+    it('match by primary tracking number', () => {
+      const cData = [{ TK: 'SPX123', BM: 'BM001', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'SPX123', Ship: 100, COD: 0, Wt: 1 }];
+      const { results, matched } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(matched, 1);
+      assertEqual(results[0].status, 'ok');
+    });
+
+    it('fallback to BM number when tracking not found', () => {
+      const cData = [{ TK: 'SPX123', BM: 'BM001', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'BM001', Ship: 100, COD: 0, Wt: 1 }];
+      const { results, matched } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(matched, 1);
+      assertEqual(results[0].status, 'ok');
+    });
+
+    it('skip rows with empty tracking', () => {
+      const cData = [
+        { TK: '', BM: '', Ship: 100, COD: 0, Wt: 1 },
+        { TK: 'T2', BM: '', Ship: 200, COD: 0, Wt: 1 },
+      ];
+      const bData = [{ TK: 'T2', Ship: 200, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results.length, 1, 'Empty tracking rows should be skipped');
+      assertEqual(results[0].tracking, 'T2');
+    });
+
+    it('trim whitespace from tracking numbers', () => {
+      const cData = [{ TK: '  SPX123  ', BM: '', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'SPX123', Ship: 100, COD: 0, Wt: 1 }];
+      const { matched } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(matched, 1);
+    });
+  });
+
+  // ────────────────────────────────
+  // 4. MULTI-FEE TOTAL SUMMATION
+  // ────────────────────────────────
+  describe('Multi-Fee Total Summation', () => {
+    it('all fees summed correctly (carrier)', () => {
+      const cMap = { tracking: 'TK', shipping_fee: 'S', overweight_fee: 'OW', remote_fee: 'RM', insurance_fee: 'INS', return_fee: 'RET', other_fees: 'OTH', cod_fee: 'COD', weight: 'Wt' };
+      const bMap = { tracking: 'TK', shipping_fee: 'S', cod_fee: 'COD', weight: 'Wt' };
+      const cData = [{ TK: 'T1', S: 100, OW: 20, RM: 10, INS: 5, RET: 15, OTH: 3, COD: 50, Wt: 1 }];
+      const bData = [{ TK: 'T1', S: 100, COD: 50, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].c_total, 153, 'cTotal should sum: 100+20+10+5+15+3 = 153 (no COD)');
+    });
+
+    it('partial fees (some unmapped → 0)', () => {
+      const cMap = { tracking: 'TK', shipping_fee: 'S', cod_fee: 'COD', weight: 'Wt' };
+      const bMap = { tracking: 'TK', shipping_fee: 'S', cod_fee: 'COD', weight: 'Wt' };
+      const cData = [{ TK: 'T1', S: 100, COD: 50, Wt: 1 }];
+      const bData = [{ TK: 'T1', S: 100, COD: 50, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].c_overweight_fee, 0, 'Unmapped overweight should be 0');
+      assertEqual(results[0].c_total, 100, 'Only mapped fees counted');
+    });
+
+    it('negative fees handled correctly', () => {
+      const cMap = { tracking: 'TK', shipping_fee: 'S', return_fee: 'RET', cod_fee: 'COD', weight: 'Wt' };
+      const bMap = { tracking: 'TK', shipping_fee: 'S', cod_fee: 'COD', weight: 'Wt' };
+      const cData = [{ TK: 'T1', S: 100, RET: -30, COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T1', S: 100, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].c_total, 70, 'Total should be 100 + (-30) = 70');
+    });
+
+    it('non-numeric values treated as 0', () => {
+      const cMap = { tracking: 'TK', shipping_fee: 'S', cod_fee: 'COD', weight: 'Wt' };
+      const bMap = { tracking: 'TK', shipping_fee: 'S', cod_fee: 'COD', weight: 'Wt' };
+      const cData = [{ TK: 'T1', S: 'abc', COD: 0, Wt: 1 }];
+      const bData = [{ TK: 'T1', S: 100, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].c_shipping_fee, 0, 'Non-numeric should become 0');
+    });
+  });
+
+  // ────────────────────────────────
+  // 5. DIFF CALCULATIONS
+  // ────────────────────────────────
+  describe('Diff Calculations', () => {
+    const cMap = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', overweight_fee: 'OW', weight: 'Wt' };
+    const bMap = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', overweight_fee: 'OW', weight: 'Wt' };
+
+    it('individual fee diffs calculated correctly', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 50, OW: 20, Wt: 5 }];
+      const bData = [{ TK: 'T1', Ship: 90, COD: 50, OW: 10, Wt: 3 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].d_shipping_fee, 10);
+      assertEqual(results[0].d_overweight_fee, 10);
+      assertEqual(results[0].d_weight, 2);
+    });
+
+    it('d_total = cTotal − bTotal (both exclude COD)', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 999, OW: 20, Wt: 1 }];
+      const bData = [{ TK: 'T1', Ship: 90, COD: 1, OW: 10, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      const expectedDiff = (100 + 20) - (90 + 10); // 120 - 100 = 20
+      assertEqual(results[0].d_total, expectedDiff);
+    });
+
+    it('missing orders: all boxme values = 0', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 50, OW: 20, Wt: 5 }];
+      const bData = []; // no boxme data
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].b_shipping_fee, 0);
+      assertEqual(results[0].b_cod_fee, 0);
+      assertEqual(results[0].b_total, 0);
+      assertEqual(results[0].d_total, 120); // 100 + 20
+    });
+  });
+
+  // ────────────────────────────────
+  // 6. SMART COLUMN AUTO-DETECT
+  // ────────────────────────────────
+  describe('Smart Column Auto-Detect', () => {
+    it('exact match from template (Tier 1)', () => {
+      const headers = ['Order ID', 'Shipping fee', 'COD amount', 'Weight'];
+      const hints = { tracking: ['order id'], shipping_fee: ['shipping fee'], cod_fee: ['cod amount'] };
+      const templateMap = { tracking: 'Order ID', shipping_fee: 'Shipping fee' };
+      const result = smartDetect(headers, hints, templateMap);
+      assertEqual(result.tracking, 'Order ID');
+      assertEqual(result.shipping_fee, 'Shipping fee');
+    });
+
+    it('case-insensitive match (Tier 2)', () => {
+      const headers = ['order id', 'SHIPPING FEE', 'cod'];
+      const hints = { tracking: ['order id'], shipping_fee: ['shipping fee'] };
+      const templateMap = { tracking: 'Order ID', shipping_fee: 'Shipping Fee' };
+      const result = smartDetect(headers, hints, templateMap);
+      assertEqual(result.tracking, 'order id');
+      assertEqual(result.shipping_fee, 'SHIPPING FEE');
+    });
+
+    it('keyword match from hints (Tier 3)', () => {
+      const headers = ['mã vận đơn', 'phí vận chuyển', 'thu hộ'];
+      const hints = { tracking: ['mã vận đơn'], shipping_fee: ['phí vận chuyển'], cod_fee: ['thu hộ'] };
+      const result = smartDetect(headers, hints, null);
+      assertEqual(result.tracking, 'mã vận đơn');
+      assertEqual(result.shipping_fee, 'phí vận chuyển');
+    });
+
+    it('no double-mapping (used tracking prevents reuse)', () => {
+      const headers = ['Tracking', 'Other Col'];
+      const hints = { tracking: ['tracking'], shipping_fee: ['tracking'] };
+      const result = smartDetect(headers, hints, null);
+      assertEqual(result.tracking, 'Tracking');
+      assert(result.shipping_fee !== 'Tracking', 'Should not double-map "Tracking"');
+    });
+  });
+
+  // ────────────────────────────────
+  // 7. REAL-WORLD: SPX_VN
+  // ────────────────────────────────
+  describe('Real-World Scenario: SPX_VN', () => {
+    it('SPX match with same shipping, different COD → OK', () => {
+      const cMap = { tracking: 'Mã vận đơn', shipping_fee: 'Phí vận chuyển', cod_fee: 'Tiền thu hộ (COD)', weight: 'Trọng lượng' };
+      const bMap = { tracking: 'Tracking Number', shipping_fee: 'Shipping Fee', cod_fee: 'COD', weight: 'Weight' };
+      const cData = [{ 'Mã vận đơn': 'SPXVN001', 'Phí vận chuyển': 25000, 'Tiền thu hộ (COD)': 500000, 'Trọng lượng': 2 }];
+      const bData = [{ 'Tracking Number': 'SPXVN001', 'Shipping Fee': 25000, 'COD': 480000, 'Weight': 2 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'ok');
+      assertEqual(results[0].d_cod_fee, 20000);
+    });
+
+    it('SPX overweight diff detected correctly', () => {
+      const cMap = { tracking: 'Mã vận đơn', shipping_fee: 'Phí vận chuyển', overweight_fee: 'Phụ phí', cod_fee: 'Tiền thu hộ (COD)', weight: 'Trọng lượng' };
+      const bMap = { tracking: 'Tracking Number', shipping_fee: 'Shipping Fee', overweight_fee: 'Overweight Fee', cod_fee: 'COD', weight: 'Weight' };
+      const cData = [{ 'Mã vận đơn': 'SPXVN002', 'Phí vận chuyển': 25000, 'Phụ phí': 15000, 'Tiền thu hộ (COD)': 0, 'Trọng lượng': 5 }];
+      const bData = [{ 'Tracking Number': 'SPXVN002', 'Shipping Fee': 25000, 'Overweight Fee': 10000, 'COD': 0, 'Weight': 5 }];
+      const { results } = reconcile(cData, bData, cMap, bMap);
+      assertEqual(results[0].status, 'carrier_over');
+      assertEqual(results[0].d_overweight_fee, 5000);
+    });
+  });
+
+  // ────────────────────────────────
+  // 8. EDGE CASES
+  // ────────────────────────────────
+  describe('Edge Cases', () => {
+    const cm = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+    const bm = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+
+    it('empty datasets', () => {
+      const { results, matched, missing } = reconcile([], [], cm, bm);
+      assertEqual(results.length, 0);
+      assertEqual(matched, 0);
+      assertEqual(missing, 0);
+    });
+
+    it('all zeros = OK status', () => {
+      const cData = [{ TK: 'T1', Ship: 0, COD: 0, Wt: 0 }];
+      const bData = [{ TK: 'T1', Ship: 0, COD: 0, Wt: 0 }];
+      const { results } = reconcile(cData, bData, cm, bm);
+      assertEqual(results[0].status, 'ok');
+      assertEqual(results[0].c_total, 0);
+    });
+
+    it('float precision: 0.1 + 0.2 scenario', () => {
+      const cData = [{ TK: 'T1', Ship: 0.1, COD: 0, Wt: 0 }];
+      const bData = [{ TK: 'T1', Ship: 0.1, COD: 0, Wt: 0 }];
+      const { results } = reconcile(cData, bData, cm, bm);
+      assertEqual(results[0].status, 'ok');
+    });
+
+    it('very large numbers handled', () => {
+      const cData = [{ TK: 'T1', Ship: 9999999.99, COD: 50000000, Wt: 100 }];
+      const bData = [{ TK: 'T1', Ship: 9999999.99, COD: 50000000, Wt: 100 }];
+      const { results } = reconcile(cData, bData, cm, bm);
+      assertEqual(results[0].status, 'ok');
+      assertEqual(results[0].c_total, 9999999.99);
+    });
+
+    it('multiple records — summary counts correct', () => {
+      const cData = [
+        { TK: 'T1', Ship: 100, COD: 0, Wt: 1 },
+        { TK: 'T2', Ship: 200, COD: 0, Wt: 2 },
+        { TK: 'T3', Ship: 50, COD: 0, Wt: 1 },
+        { TK: 'T4', Ship: 80, COD: 0, Wt: 1 },
+      ];
+      const bData = [
+        { TK: 'T1', Ship: 100, COD: 0, Wt: 1 },  // OK
+        { TK: 'T2', Ship: 150, COD: 0, Wt: 2 },  // carrier_over (200-150=50)
+        { TK: 'T3', Ship: 70, COD: 0, Wt: 1 },   // boxme_over (50-70=-20)
+        // T4 missing
+      ];
+      const { results, matched, missing } = reconcile(cData, bData, cm, bm);
+      assertEqual(results.length, 4);
+      assertEqual(matched, 3);
+      assertEqual(missing, 1);
+      assertEqual(results.filter(r => r.status === 'ok').length, 1);
+      assertEqual(results.filter(r => r.status === 'carrier_over').length, 1);
+      assertEqual(results.filter(r => r.status === 'boxme_over').length, 1);
+      assertEqual(results.filter(r => r.status === 'missing').length, 1);
+    });
+  });
+
+  // ────────────────────────────────
+  // 9. SELF-TEST: FEE_FIELDS vs TOTAL_FEE_FIELDS
+  // ────────────────────────────────
+  describe('Self-Test: Constants Integrity', () => {
+    it('FEE_FIELDS has 7 items', () => {
+      assertEqual(FEE_FIELDS.length, 7);
+    });
+
+    it('TOTAL_FEE_FIELDS has 6 items (FEE_FIELDS minus cod_fee)', () => {
+      assertEqual(TOTAL_FEE_FIELDS.length, 6);
+    });
+
+    it('cod_fee is in FEE_FIELDS but NOT in TOTAL_FEE_FIELDS', () => {
+      assert(FEE_FIELDS.includes('cod_fee'), 'FEE_FIELDS should include cod_fee');
+      assert(!TOTAL_FEE_FIELDS.includes('cod_fee'), 'TOTAL_FEE_FIELDS should NOT include cod_fee');
+    });
+
+    it('TOTAL_FEE_FIELDS is subset of FEE_FIELDS', () => {
+      const allInFee = TOTAL_FEE_FIELDS.every(f => FEE_FIELDS.includes(f));
+      assert(allInFee, 'Every TOTAL_FEE_FIELD should exist in FEE_FIELDS');
+    });
+
+    it('shipping_fee is first in TOTAL_FEE_FIELDS', () => {
+      assertEqual(TOTAL_FEE_FIELDS[0], 'shipping_fee');
+    });
+  });
+
+  // ════════════════════════════════════════════
+  //  PHASE 2: NEW TEST SUITES (Coverage Gaps)
+  // ════════════════════════════════════════════
+
+  // ────────────────────────────────
+  // 10. mergeHints
+  // ────────────────────────────────
+  describe('mergeHints', () => {
+    it('returns global hints when no carrier hints', () => {
+      const global = { tracking: ['tracking', 'mã vận đơn'], shipping_fee: ['shipping fee'] };
+      const result = mergeHints(global, null);
+      assertEqual(result, global, 'Should return exact global hints object');
+    });
+
+    it('carrier hints prioritized first and deduplicated', () => {
+      const global = { tracking: ['tracking', 'order id'], shipping_fee: ['shipping fee'] };
+      const carrier = { tracking: ['MÃ ĐƠN', 'tracking'] }; // 'tracking' overlaps
+      const result = mergeHints(global, carrier);
+      // Carrier hints first, then global, deduplicated
+      assertEqual(result.tracking[0], 'mã đơn', 'Carrier hint should be first (lowercased)');
+      assert(result.tracking.includes('tracking'), 'Global "tracking" should be included');
+      assert(result.tracking.includes('order id'), 'Global "order id" should be included');
+      // Check no duplicates
+      const unique = [...new Set(result.tracking)];
+      assertEqual(result.tracking.length, unique.length, 'No duplicates allowed');
+    });
+
+    it('handles missing fields gracefully', () => {
+      const global = { tracking: ['tracking'], shipping_fee: ['shipping fee'], cod_fee: ['cod'] };
+      const carrier = { tracking: ['order number'] }; // only tracking — shipping_fee and cod_fee not overridden
+      const result = mergeHints(global, carrier);
+      assertEqual(result.tracking[0], 'order number', 'Carrier hint first');
+      assertEqual(result.shipping_fee[0], 'shipping fee', 'Global fallback for unmapped fields');
+      assertEqual(result.cod_fee[0], 'cod', 'Global fallback for cod_fee');
+    });
+  });
+
+  // ────────────────────────────────
+  // 11. SMART DETECT: TIER 4 (Partial/Substring)
+  // ────────────────────────────────
+  describe('Smart Detect: Tier 4 (Partial Match)', () => {
+    it('substring match: "Total Shipping fee amount" matches hint "shipping fee"', () => {
+      const headers = ['Order Number', 'Total Shipping fee amount', 'COD collected'];
+      const hints = { tracking: ['order number'], shipping_fee: ['shipping fee'], cod_fee: ['cod'] };
+      const result = smartDetect(headers, hints, null);
+      assertEqual(result.shipping_fee, 'Total Shipping fee amount', 'Tier 4 substring should match');
+    });
+
+    it('Tier 4 only used when Tier 1-3 fail', () => {
+      // "shipping fee" exact match should beat "Total Shipping fee amount" substring
+      const headers = ['shipping fee', 'Total Shipping fee amount', 'Order Number'];
+      const hints = { shipping_fee: ['shipping fee'], tracking: ['order number'] };
+      const result = smartDetect(headers, hints, null);
+      assertEqual(result.shipping_fee, 'shipping fee', 'Tier 3 exact keyword should win over Tier 4 substring');
+    });
+  });
+
+  // ────────────────────────────────
+  // 12. MISSING-IN-CARRIER (Reverse Matching)
+  // ────────────────────────────────
+  describe('Missing-in-Carrier (Reverse Matching)', () => {
+    const cm = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+    const bm = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+
+    it('counts Boxme records not found in carrier data', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [
+        { TK: 'T1', Ship: 100, COD: 0, Wt: 1 },
+        { TK: 'T2', Ship: 50, COD: 0, Wt: 1 },  // not in carrier
+        { TK: 'T3', Ship: 80, COD: 0, Wt: 1 },  // not in carrier
+      ];
+      const { missingInCarrier } = reconcile(cData, bData, cm, bm);
+      assertEqual(missingInCarrier, 2, 'T2 and T3 missing from carrier');
+    });
+
+    it('reverse matching ignores empty tracking numbers', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [
+        { TK: 'T1', Ship: 100, COD: 0, Wt: 1 },
+        { TK: '', Ship: 50, COD: 0, Wt: 1 },    // empty — should be ignored
+        { TK: 'T3', Ship: 80, COD: 0, Wt: 1 },  // genuinely missing
+      ];
+      const { missingInCarrier } = reconcile(cData, bData, cm, bm);
+      assertEqual(missingInCarrier, 1, 'Only T3 counts — empty tracking ignored');
+    });
+  });
+
+  // ────────────────────────────────
+  // 13. DUPLICATE TRACKING NUMBERS
+  // ────────────────────────────────
+  describe('Duplicate Tracking Numbers', () => {
+    const cm = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+    const bm = { tracking: 'TK', shipping_fee: 'Ship', cod_fee: 'COD', weight: 'Wt' };
+
+    it('last Boxme row wins when duplicate tracking numbers exist', () => {
+      const cData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const bData = [
+        { TK: 'T1', Ship: 50, COD: 0, Wt: 1 },   // first — overwritten
+        { TK: 'T1', Ship: 200, COD: 0, Wt: 1 },  // last — wins in Map
+      ];
+      const { results } = reconcile(cData, bData, cm, bm);
+      assertEqual(results[0].b_shipping_fee, 200, 'Last Boxme row should win for duplicate tracking');
+    });
+
+    it('multiple carrier rows with same tracking each get compared', () => {
+      const cData = [
+        { TK: 'T1', Ship: 100, COD: 0, Wt: 1 },
+        { TK: 'T1', Ship: 150, COD: 0, Wt: 2 },
+      ];
+      const bData = [{ TK: 'T1', Ship: 100, COD: 0, Wt: 1 }];
+      const { results } = reconcile(cData, bData, cm, bm);
+      assertEqual(results.length, 2, 'Both carrier rows should produce results');
+      assertEqual(results[0].status, 'ok', 'First row: 100 vs 100 = ok');
+      assertEqual(results[1].status, 'carrier_over', 'Second row: 150 vs 100 = carrier_over');
+    });
+  });
+
+  // ────────────────────────────────
+  // 14. MULTI-CARRIER COLUMN DETECTION
+  // ────────────────────────────────
+  describe('Multi-Carrier Column Detection', () => {
+    it('GHN columns auto-detected from Vietnamese keywords', () => {
+      const headers = ['Mã đơn hàng', 'Mã vận đơn', 'Tổng cước', 'Thu hộ', 'Trọng lượng quy đổi'];
+      const hints = {
+        tracking: ['mã vận đơn'], bm_number: ['mã đơn hàng'],
+        shipping_fee: ['tổng cước', 'cước phí'], cod_fee: ['thu hộ'],
+        weight: ['trọng lượng']
+      };
+      const result = smartDetect(headers, hints, null);
+      assertEqual(result.tracking, 'Mã vận đơn');
+      assertEqual(result.bm_number, 'Mã đơn hàng');
+      assertEqual(result.shipping_fee, 'Tổng cước');
+      assertEqual(result.cod_fee, 'Thu hộ');
+    });
+
+    it('GHTK columns auto-detected correctly', () => {
+      const headers = ['Mã đơn hàng', 'Mã vận đơn', 'Phí ship', 'Tiền thu hộ', 'Khối lượng'];
+      const hints = {
+        tracking: ['mã vận đơn'], bm_number: ['mã đơn hàng'],
+        shipping_fee: ['phí ship', 'phí vận chuyển'], cod_fee: ['tiền thu hộ'],
+        weight: ['khối lượng']
+      };
+      const result = smartDetect(headers, hints, null);
+      assertEqual(result.tracking, 'Mã vận đơn');
+      assertEqual(result.shipping_fee, 'Phí ship');
+      assertEqual(result.cod_fee, 'Tiền thu hộ');
+    });
+
+    it('DHL_TH columns auto-detected from English+Thai mixed headers', () => {
+      const headers = ['Waybill', 'Shipment ID', 'Total Charge', 'COD Amount', 'Actual Weight'];
+      const hints = {
+        tracking: ['waybill'], bm_number: ['shipment id'],
+        shipping_fee: ['total charge'], cod_fee: ['cod amount'],
+        weight: ['actual weight']
+      };
+      const result = smartDetect(headers, hints, null);
+      assertEqual(result.tracking, 'Waybill');
+      assertEqual(result.shipping_fee, 'Total Charge');
+      assertEqual(result.cod_fee, 'COD Amount');
+    });
+  });
+
+  // ────────────────────────────────
+  // 15. EXPORT DATA TRANSFORMATION
+  // ────────────────────────────────
+  describe('Export Data Transformation', () => {
+    it('export row maps all fee fields correctly', () => {
+      const row = {
+        tracking: 'T1', bmNumber: 'BM001',
+        c_shipping_fee: 100, c_cod_fee: 50, c_overweight_fee: 20, c_remote_fee: 10,
+        c_insurance_fee: 5, c_return_fee: 15, c_other_fees: 3, c_total: 153, c_weight: 2,
+        b_shipping_fee: 90, b_cod_fee: 50, b_overweight_fee: 10, b_remote_fee: 10,
+        b_insurance_fee: 5, b_return_fee: 15, b_other_fees: 3, b_total: 133, b_weight: 2,
+        d_shipping_fee: 10, d_cod_fee: 0, d_overweight_fee: 10, d_remote_fee: 0,
+        d_insurance_fee: 0, d_return_fee: 0, d_other_fees: 0, d_total: 20, d_weight: 0,
+        status: 'carrier_over'
+      };
+      const exported = buildExportRow(row, 0);
+      assertEqual(exported[0], 1, 'Row number 1-indexed');
+      assertEqual(exported[1], 'T1', 'Tracking');
+      assertEqual(exported[2], 'BM001', 'BM Number');
+      assertEqual(exported[3], 100, 'C Shipping');
+      assertEqual(exported[10], 153, 'C Total');
+      assertEqual(exported[19], 133, 'B Total');
+      assertEqual(exported[28], 20, 'D Total');
+    });
+
+    it('status labels translated correctly for export', () => {
+      const labels = { ok: 'Khớp', carrier_over: 'Hãng cao hơn', boxme_over: 'Boxme cao hơn', missing: 'Thiếu' };
+      const makeRow = (status) => ({
+        tracking: 'T', bmNumber: '',
+        ...Object.fromEntries(FEE_FIELDS.flatMap(f => [['c_'+f, 0], ['b_'+f, 0], ['d_'+f, 0]])),
+        c_total: 0, b_total: 0, d_total: 0, c_weight: 0, b_weight: 0, d_weight: 0,
+        status
+      });
+      assertEqual(buildExportRow(makeRow('ok'), 0, labels)[30], 'Khớp');
+      assertEqual(buildExportRow(makeRow('carrier_over'), 0, labels)[30], 'Hãng cao hơn');
+      assertEqual(buildExportRow(makeRow('boxme_over'), 0, labels)[30], 'Boxme cao hơn');
+      assertEqual(buildExportRow(makeRow('missing'), 0, labels)[30], 'Thiếu');
+    });
+  });
+
+  // ═══════════════════════════════════════════
+  //  RENDER RESULTS
+  // ═══════════════════════════════════════════
+  const summaryEl = document.getElementById('summary');
+  const resultsEl = document.getElementById('test-results');
+
+  summaryEl.innerHTML = `
+    <div class="summary-card total-card"><div class="val">${totalPass + totalFail}</div><div class="lbl">Total</div></div>
+    <div class="summary-card pass-card"><div class="val">${totalPass}</div><div class="lbl">Passed ✓</div></div>
+    <div class="summary-card fail-card"><div class="val">${totalFail}</div><div class="lbl">Failed ✗</div></div>
+  `;
+
+  resultsEl.innerHTML = tests.map(s => {
+    return `<div class="section">
+      <div class="section-title">${s.section}</div>
+      ${s.tests.map(t => `
+        <div class="test ${t.pass ? 'pass' : 'fail'}">
+          <span class="icon">${t.pass ? '✅' : '❌'}</span>
+          <span class="name">${t.name}</span>
+          ${t.detail ? `<span class="detail">${t.detail}</span>` : '<span class="detail" style="color:var(--pass)">OK</span>'}
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('');
+
+  document.getElementById('timestamp').textContent = `Last run: ${new Date().toLocaleString()} · ${totalPass + totalFail} tests in ${tests.length} suites`;
+
+  // Console summary
+  console.log(`\n🧪 Test Results: ${totalPass} passed, ${totalFail} failed out of ${totalPass + totalFail}`);
+  if (totalFail > 0) {
+    console.error('❌ FAILING TESTS:');
+    tests.forEach(s => s.tests.filter(t => !t.pass).forEach(t => console.error(`  [${s.section}] ${t.name}: ${t.detail}`)));
+  } else {
+    console.log('✅ ALL TESTS PASSED');
+  }
+}
+
+// Auto-run on load
+runAllTests();
+</script>
+</body>
+</html>

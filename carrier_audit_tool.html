@@ -1,0 +1,1177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>📦 Carrier Audit Tool</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+:root {
+  --bg: #f5f5f5; --fg: #0a0a0a; --card: #fff; --card-fg: #0a0a0a;
+  --primary: #171717; --primary-fg: #fafafa;
+  --secondary: #f5f5f5; --secondary-fg: #525252;
+  --muted: #f5f5f5; --muted-fg: #737373;
+  --border: #e5e5e5; --input: #e5e5e5; --ring: #171717;
+  --radius: 0.5rem;
+  --success: #16a34a; --success-bg: #dcfce7;
+  --danger: #dc2626; --danger-bg: #fef2f2;
+  --warn: #d97706; --warn-bg: #fefce8;
+  --accent: #2563eb; --accent-bg: #eff6ff;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow: 0 1px 3px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -2px rgba(0,0,0,0.1);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;background:var(--bg);color:var(--fg);min-height:100vh;-webkit-font-smoothing:antialiased}
+
+/* Header */
+.app-header{background:var(--primary);color:var(--primary-fg);padding:12px 16px;position:sticky;top:0;z-index:100;box-shadow:var(--shadow-md)}
+.app-header-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.app-header h1{font-size:16px;font-weight:700;letter-spacing:-0.3px;white-space:nowrap}
+.app-header p{font-size:11px;opacity:0.6;margin-top:1px}
+.header-actions{display:flex;gap:6px;flex-shrink:0}
+.header-btn{background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:6px 10px;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap}
+.header-btn:hover{background:rgba(255,255,255,0.2)}
+.lang-switcher{display:flex;gap:3px;margin-right:4px}
+.lang-btn{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);color:#fff;padding:4px 8px;border-radius:5px;font-size:12px;cursor:pointer;transition:all .15s;line-height:1}
+.lang-btn:hover{background:rgba(255,255,255,0.18)}
+.lang-btn.active{background:rgba(255,255,255,0.25);border-color:rgba(255,255,255,0.4);box-shadow:0 0 0 1px rgba(255,255,255,0.15)}
+
+/* Steps */
+.steps{display:flex;align-items:center;gap:0;padding:12px 16px;background:var(--card);border-bottom:1px solid var(--border);overflow-x:auto}
+.steps-inner{max-width:1200px;margin:0 auto;display:flex;align-items:center;gap:0;width:100%}
+.step{display:flex;align-items:center;gap:5px;flex-shrink:0;cursor:pointer;padding-bottom:2px}
+.step-dot{width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;background:var(--muted);color:var(--muted-fg);transition:all .2s;border:2px solid transparent}
+.step.active .step-dot{background:var(--primary);color:var(--primary-fg);box-shadow:0 0 0 3px rgba(23,23,23,0.15)}
+.step.done .step-dot{background:var(--success);color:#fff}
+.step-label{font-size:10px;font-weight:600;color:var(--muted-fg);white-space:nowrap}
+.step.active .step-label{color:var(--primary)}
+.step.done .step-label{color:var(--success)}
+.step-line{width:20px;height:2px;background:var(--border);flex-shrink:0;margin:0 4px}
+.step-line.done{background:var(--success)}
+
+/* Content */
+.content{padding:16px;max-width:1200px;margin:0 auto}
+
+/* Card */
+.card{background:var(--card);border-radius:var(--radius);border:1px solid var(--border);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:12px}
+.card-header{padding:12px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px}
+.card-header .icon{width:34px;height:34px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.card-header h2{font-size:14px;font-weight:700}
+.card-header p{font-size:11px;color:var(--muted-fg);margin-top:1px}
+.card-body{padding:14px}
+
+/* Upload */
+.upload-zone{border:2px dashed var(--border);border-radius:8px;padding:20px 14px;text-align:center;cursor:pointer;transition:all .15s;background:var(--secondary)}
+.upload-zone:hover,.upload-zone.drag{border-color:var(--primary);background:var(--accent-bg)}
+.upload-zone .uz-icon{font-size:28px;margin-bottom:6px}
+.upload-zone .uz-title{font-size:13px;font-weight:600}
+.upload-zone .uz-sub{font-size:11px;color:var(--muted-fg);margin-top:3px}
+.upload-zone input[type=file]{display:none}
+.file-badge{display:flex;align-items:center;gap:10px;padding:10px 12px;background:var(--accent-bg);border-radius:8px;margin-top:10px}
+.file-badge .fb-name{font-size:12px;font-weight:600;color:var(--accent)}
+.file-badge .fb-info{font-size:10px;color:var(--muted-fg)}
+.file-badge .fb-remove{margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted-fg);padding:2px 6px;border-radius:4px}
+.file-badge .fb-remove:hover{background:var(--danger-bg);color:var(--danger)}
+.sheet-sel{margin-top:10px}
+.sheet-sel label{font-size:11px;font-weight:600;color:var(--muted-fg);display:block;margin-bottom:3px}
+
+/* Select / Input */
+select,input[type=number],input[type=text]{width:100%;padding:8px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--card);color:var(--fg);transition:border-color .15s;outline:none}
+select:focus,input:focus{border-color:var(--ring);box-shadow:0 0 0 2px rgba(23,23,23,0.08)}
+
+/* Column mapping */
+.col-section-title{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px;padding:4px 8px;border-radius:6px;display:inline-block}
+.col-map-row{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;margin-bottom:6px}
+.col-map-label{font-size:11px;font-weight:600;color:var(--muted-fg)}
+.col-map-arrow{font-size:12px;color:var(--muted-fg);text-align:center}
+.col-map-select{padding:7px 8px;border:1px solid var(--border);border-radius:6px;font-size:11px;background:var(--card)}
+.data-preview{margin-top:12px;overflow-x:auto;border-radius:6px;border:1px solid var(--border)}
+.data-preview table{width:100%;border-collapse:collapse;font-size:10px}
+.data-preview th{background:var(--muted);padding:6px 8px;font-weight:600;text-align:left;white-space:nowrap}
+.data-preview td{padding:5px 8px;border-top:1px solid var(--border);white-space:nowrap;max-width:120px;overflow:hidden;text-overflow:ellipsis}
+
+/* Buttons */
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;padding:12px 16px;border-radius:8px;font-size:14px;font-weight:600;border:none;cursor:pointer;width:100%;transition:all .15s}
+.btn-primary{background:var(--primary);color:var(--primary-fg);box-shadow:var(--shadow)}
+.btn-primary:hover{opacity:0.9}
+.btn-primary:disabled{background:var(--muted-fg);cursor:not-allowed;box-shadow:none}
+.btn-success{background:var(--success);color:#fff;box-shadow:var(--shadow)}
+.btn-outline{background:var(--card);color:var(--fg);border:1px solid var(--border)}
+.btn-outline:hover{background:var(--muted)}
+.btn-sm{padding:8px 12px;font-size:12px;width:auto}
+.btn-row{display:flex;gap:8px;margin-top:8px}
+.btn-row .btn{flex:1}
+
+/* Carrier select */
+.carrier-grid{display:grid;gap:6px}
+.carrier-group-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted-fg);padding:4px 0}
+
+/* Progress */
+.progress-bar{height:6px;background:var(--muted);border-radius:99px;overflow:hidden;margin-top:8px}
+.progress-fill{height:100%;background:var(--primary);border-radius:99px;transition:width .3s}
+.progress-label{font-size:11px;color:var(--muted-fg);margin-top:4px;text-align:right}
+.log-box{background:#18181b;color:#a3e635;font-size:10px;font-family:ui-monospace,'SF Mono',monospace;padding:10px;border-radius:6px;margin-top:8px;max-height:120px;overflow-y:auto;line-height:1.6}
+
+/* Summary */
+.summary-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.summary-card{border-radius:8px;padding:12px;text-align:center;border:1px solid var(--border)}
+.summary-card .sc-val{font-size:24px;font-weight:800;line-height:1}
+.summary-card .sc-lbl{font-size:10px;font-weight:600;margin-top:3px;opacity:.75}
+.sc-total{background:var(--accent-bg);color:var(--accent)}
+.sc-ok{background:var(--success-bg);color:var(--success)}
+.sc-danger{background:var(--danger-bg);color:var(--danger)}
+.sc-warn{background:var(--warn-bg);color:var(--warn)}
+
+/* Stats row */
+.stats-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:10px}
+.stat-card{border-radius:8px;padding:14px;border:1px solid var(--border);display:flex;align-items:center;gap:12px}
+.stat-card .stat-icon{font-size:28px;width:48px;height:48px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.stat-card .stat-val{font-size:20px;font-weight:800;line-height:1.1}
+.stat-card .stat-lbl{font-size:10px;font-weight:600;margin-top:2px;opacity:.75}
+.stat-card .stat-amt{font-size:12px;font-weight:700;margin-top:3px}
+.stat-up{background:#fef2f2;border-color:#fca5a5}
+.stat-up .stat-icon{background:#fee2e2;color:var(--danger)}
+.stat-up .stat-val,.stat-up .stat-amt{color:var(--danger)}
+.stat-down{background:#f0fdf4;border-color:#86efac}
+.stat-down .stat-icon{background:#dcfce7;color:var(--success)}
+.stat-down .stat-val,.stat-down .stat-amt{color:var(--success)}
+.stat-net{background:var(--accent-bg);border-color:#93c5fd}
+.stat-net .stat-icon{background:#dbeafe;color:var(--accent)}
+.stat-net .stat-val,.stat-net .stat-amt{color:var(--accent)}
+
+/* Export bar */
+.export-bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.export-bar .export-label{font-size:11px;font-weight:600;color:var(--muted-fg)}
+
+/* Filter tabs */
+.filter-tabs{display:flex;background:var(--muted);border-radius:8px;padding:3px;gap:2px;margin-bottom:10px}
+.filter-tab{flex:1;padding:7px 4px;text-align:center;border:none;background:transparent;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;color:var(--muted-fg);transition:all .15s}
+.filter-tab.active{background:var(--card);color:var(--fg);box-shadow:var(--shadow-sm)}
+
+/* Table */
+.table-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;border-radius:8px;border:1px solid var(--border)}
+.res-table{border-collapse:collapse;width:max-content;min-width:100%;font-size:11px}
+.res-table th{background:var(--primary);color:var(--primary-fg);padding:8px 10px;text-align:left;white-space:nowrap;font-size:10px;font-weight:700;position:sticky;top:0;z-index:10}
+.res-table th.g-carrier{background:var(--accent)}
+.res-table th.g-boxme{background:var(--success)}
+.res-table th.g-diff{background:#9a3412}
+.res-table td{padding:7px 10px;border-bottom:1px solid var(--muted);white-space:nowrap;vertical-align:middle}
+.res-table tr:last-child td{border-bottom:none}
+.res-table tr.row-diff td{background:var(--warn-bg)}
+.res-table tr:hover td{filter:brightness(0.97)}
+.cell-diff{background:#ea580c!important;color:#fff!important;border-radius:3px;font-weight:700}
+.badge{display:inline-block;padding:2px 7px;border-radius:5px;font-size:9px;font-weight:700}
+.badge-ok{background:var(--success-bg);color:var(--success)}
+.badge-danger{background:var(--danger-bg);color:var(--danger)}
+.badge-warn{background:var(--warn-bg);color:var(--warn)}
+.badge-miss{background:var(--muted);color:var(--muted-fg)}
+
+/* Pagination */
+.pagination{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 0}
+.pagination button{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;background:var(--card);transition:all .12s}
+.pagination button.active{background:var(--primary);color:var(--primary-fg);border-color:var(--primary)}
+.pagination button:disabled{opacity:.4;cursor:not-allowed}
+.page-info{font-size:11px;color:var(--muted-fg)}
+
+/* Tolerance */
+.tol-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.tol-label{font-size:10px;color:var(--muted-fg);display:block;margin-bottom:3px;font-weight:600}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:var(--primary);color:var(--primary-fg);padding:10px 18px;border-radius:8px;font-size:12px;font-weight:600;z-index:9999;box-shadow:var(--shadow-md);opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+.hidden{display:none!important}
+.section{animation:fadeUp .2s ease}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Responsive */
+@media(min-width:480px){.summary-grid{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:640px){.stats-row{grid-template-columns:1fr}.export-bar{flex-direction:column}}
+@media(min-width:768px){.content{padding:20px}}
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="app-header">
+  <div class="app-header-inner">
+    <div>
+      <h1 id="app-title">📦 Carrier Audit Tool</h1>
+      <p id="app-subtitle">Multi-Carrier Reconciliation · Boxme Global</p>
+    </div>
+    <div class="header-actions">
+      <div class="lang-switcher" id="lang-switcher">
+        <button class="lang-btn active" onclick="setLang('en')" data-lang="en">🇬🇧</button>
+        <button class="lang-btn" onclick="setLang('vi')" data-lang="vi">🇻🇳</button>
+        <button class="lang-btn" onclick="setLang('th')" data-lang="th">🇹🇭</button>
+      </div>
+      <button class="header-btn" id="btn-export-tpl" onclick="exportTemplatesJSON()">↓ Templates</button>
+      <button class="header-btn" id="btn-import-tpl" onclick="document.getElementById('import-tpl').click()">↑ Import</button>
+      <input type="file" id="import-tpl" class="hidden" accept=".json" onchange="importTemplatesJSON(event)">
+    </div>
+  </div>
+</div>
+
+<!-- STEPS -->
+<div class="steps"><div class="steps-inner" id="steps-bar"></div></div>
+
+<!-- STEP 1: SELECT CARRIER -->
+<div id="section-1" class="content section">
+  <div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--accent-bg)">🚚</div>
+      <div><h2>Select Carrier</h2><p>Choose shipping carrier or add custom</p></div>
+    </div>
+    <div class="card-body">
+      <select id="carrier-select" onchange="onCarrierChange()">
+        <option value="">— Select Carrier —</option>
+      </select>
+      <div id="custom-carrier-box" class="hidden" style="margin-top:8px">
+        <input type="text" id="custom-carrier-name" placeholder="Enter carrier name...">
+      </div>
+      <div id="template-badge" class="hidden" style="margin-top:8px">
+        <div class="file-badge">
+          <span>💾</span>
+          <div><span class="fb-name" id="tpl-badge-text">Template loaded</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <button class="btn btn-primary" id="btn-step1" onclick="goStep(2)" disabled>Continue to Upload →</button>
+</div>
+
+<!-- STEP 2: UPLOAD FILES -->
+<div id="section-2" class="content section hidden">
+  <div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--accent-bg)">📄</div>
+      <div><h2>Carrier Invoice File</h2><p>Upload invoice/report from carrier</p></div>
+    </div>
+    <div class="card-body">
+      <div class="upload-zone" id="carrier-zone" onclick="document.getElementById('carrier-input').click()" ondragover="onDrag(event,'carrier-zone')" ondragleave="offDrag('carrier-zone')" ondrop="onDrop(event,'carrier')">
+        <div class="uz-icon">📂</div>
+        <div class="uz-title">Tap to upload carrier file</div>
+        <div class="uz-sub">.xlsx, .xls, .csv</div>
+        <input type="file" id="carrier-input" accept=".xlsx,.xls,.csv" onchange="loadFile(event,'carrier')">
+      </div>
+      <div id="carrier-badge" class="hidden"></div>
+      <div id="carrier-sheet-sel" class="sheet-sel hidden">
+        <label>Select Sheet</label>
+        <select id="carrier-sheet" onchange="onSheetSelect('carrier')"></select>
+      </div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--success-bg)">🗄️</div>
+      <div><h2>Boxme System File</h2><p>Upload Boxme export file</p></div>
+    </div>
+    <div class="card-body">
+      <div class="upload-zone" id="boxme-zone" onclick="document.getElementById('boxme-input').click()" ondragover="onDrag(event,'boxme-zone')" ondragleave="offDrag('boxme-zone')" ondrop="onDrop(event,'boxme')">
+        <div class="uz-icon">📂</div>
+        <div class="uz-title">Tap to upload Boxme file</div>
+        <div class="uz-sub">.xlsx, .xls, .csv</div>
+        <input type="file" id="boxme-input" accept=".xlsx,.xls,.csv" onchange="loadFile(event,'boxme')">
+      </div>
+      <div id="boxme-badge" class="hidden"></div>
+      <div id="boxme-sheet-sel" class="sheet-sel hidden">
+        <label>Select Sheet</label>
+        <select id="boxme-sheet" onchange="onSheetSelect('boxme')"></select>
+      </div>
+    </div>
+  </div>
+  <button class="btn btn-primary" id="btn-step2" onclick="goStep(3)" disabled>Continue to Column Mapping →</button>
+</div>
+
+<!-- STEP 3: MAP COLUMNS -->
+<div id="section-3" class="content section hidden">
+  <div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--warn-bg)">🔗</div>
+      <div><h2>Column Mapping</h2><p>Map columns for comparison</p></div>
+    </div>
+    <div class="card-body">
+      <p style="font-size:11px;color:var(--muted-fg);margin-bottom:12px">Auto-detected from your files. Adjust if needed.</p>
+      <div id="carrier-col-section"></div>
+      <div id="boxme-col-section" style="margin-top:14px"></div>
+      <div style="margin-top:14px;padding:10px;background:var(--muted);border-radius:8px">
+        <div style="font-size:11px;font-weight:700;margin-bottom:6px">⚙️ Tolerance Settings</div>
+        <div class="tol-grid">
+          <div><label class="tol-label">Fee Tolerance</label><input type="number" id="tol-fee" value="0.01" step="0.01" min="0"></div>
+          <div><label class="tol-label">Weight Tolerance</label><input type="number" id="tol-wt" value="0" step="1" min="0"></div>
+        </div>
+      </div>
+      <div class="btn-row" style="margin-top:12px">
+        <button class="btn btn-outline btn-sm" onclick="autoDetectAll()">🔍 Auto Detect</button>
+        <button class="btn btn-outline btn-sm" onclick="saveCurrentTemplate()">💾 Save Template</button>
+      </div>
+      <div id="preview-section"></div>
+    </div>
+  </div>
+  <button class="btn btn-primary" onclick="goStep(4)">▶ Start Reconciliation</button>
+</div>
+
+<!-- STEP 4: PROCESSING -->
+<div id="section-4" class="content section hidden">
+  <div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:#ede9fe">⚙️</div>
+      <div><h2>Processing</h2><p>Running reconciliation...</p></div>
+    </div>
+    <div class="card-body">
+      <div id="proc-status" style="font-size:12px;font-weight:600;margin-bottom:4px">Initialising...</div>
+      <div class="progress-bar"><div class="progress-fill" id="proc-bar" style="width:0%"></div></div>
+      <div class="progress-label" id="proc-pct">0%</div>
+      <div class="log-box" id="proc-log"></div>
+    </div>
+  </div>
+</div>
+
+<!-- STEP 5: RESULTS -->
+<div id="section-5" class="content section hidden">
+  <div class="card">
+    <div class="card-header">
+      <div class="icon" style="background:var(--success-bg)">📊</div>
+      <div><h2>Reconciliation Results</h2><p id="result-sub"></p></div>
+    </div>
+    <div class="card-body">
+      <div class="summary-grid" id="summary-cards"></div>
+      <div class="stats-row" id="stats-row"></div>
+    </div>
+  </div>
+  <div class="card" style="margin-top:10px">
+    <div class="card-body" style="padding:10px">
+      <div class="filter-tabs" id="filter-tabs"></div>
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;margin-bottom:8px">
+        <div id="table-info" style="font-size:10px;color:var(--muted-fg)"></div>
+        <div class="export-bar">
+          <span class="export-label">Export current view:</span>
+          <button class="btn btn-success btn-sm" style="padding:6px 12px;font-size:11px" onclick="downloadExcel()">⬇ Excel (.xlsx)</button>
+          <button class="btn btn-outline btn-sm" style="padding:6px 12px;font-size:11px" onclick="downloadCSV()">⬇ CSV</button>
+        </div>
+      </div>
+      <div class="table-wrap"><table class="res-table"><thead id="res-thead"></thead><tbody id="res-tbody"></tbody></table></div>
+      <div class="pagination" id="pagination"></div>
+    </div>
+  </div>
+  <button class="btn btn-outline" style="margin-top:10px;margin-bottom:24px" onclick="resetApp()">← Start New Comparison</button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="carrier_audit_core.js"></script>
+<script>
+// ════════════════════════════════════════════════════════════
+//  I18N — Multilingual Support (EN / VI / TH)
+// ════════════════════════════════════════════════════════════
+const I18N = {
+  en: {
+    appTitle: '📦 Carrier Audit Tool',
+    appSubtitle: 'Multi-Carrier Reconciliation · Boxme Global',
+    btnExportTpl: '↓ Templates', btnImportTpl: '↑ Import',
+    step1: 'Select Carrier', step2: 'Upload Files', step3: 'Map Columns', step4: 'Processing', step5: 'Results',
+    selectCarrier: 'Select Carrier', selectCarrierSub: 'Choose shipping carrier or add custom',
+    selectPlaceholder: '— Select Carrier —', customGroup: 'Custom', customOption: '✏️ Other / Custom carrier',
+    customPlaceholder: 'Enter carrier name...',
+    tplLoaded: 'Template loaded',
+    btnContinueUpload: 'Continue to Upload →',
+    carrierFile: 'Carrier Invoice File', carrierFileSub: 'Upload invoice/report from carrier',
+    boxmeFile: 'Boxme System File', boxmeFileSub: 'Upload Boxme export file',
+    tapUploadCarrier: 'Tap to upload carrier file', tapUploadBoxme: 'Tap to upload Boxme file',
+    fileTypes: '.xlsx, .xls, .csv', selectSheet: 'Select Sheet',
+    btnContinueMap: 'Continue to Column Mapping →',
+    colMapping: 'Column Mapping', colMappingSub: 'Map columns for comparison',
+    autoDetectNotice: 'Auto-detected from your files. Adjust if needed.',
+    carrierCols: '📄 Carrier File Columns', boxmeCols: '🗄️ Boxme File Columns',
+    noneOption: '— none —',
+    tolSettings: '⚙️ Tolerance Settings', tolFee: 'Fee Tolerance', tolWeight: 'Weight Tolerance',
+    btnAutoDetect: '🔍 Auto Detect', btnSaveTemplate: '💾 Save Template',
+    previewTitle: '📋 Data Preview (first 3 rows)',
+    btnStartRecon: '▶ Start Reconciliation',
+    processing: 'Processing', processingSub: 'Running reconciliation...',
+    procInit: 'Initialising...', procLoading: 'Loading data...', procBuildLookup: 'Building Boxme lookup...',
+    procComparing: 'Comparing records...', procCompareProgress: 'Comparing...', procFinal: 'Finalising...', procComplete: 'Complete!',
+    logStart: 'Starting reconciliation...', logCarrierRec: 'Carrier records:', logBoxmeRec: 'Boxme records:',
+    logBoxmeUnique: 'Boxme unique trackings:', logMatched: 'Matched:', logMissingBoxme: 'Missing in Boxme:',
+    logMissingCarrier: 'Missing in Carrier:', logOK: 'OK:', logDiff: 'Differences:',
+    reconResults: 'Reconciliation Results',
+    lblTotal: 'Total', lblOK: '✅ OK', lblHigherFee: '🔴 Higher Fee', lblLowerMissing: '🟠 Lower Fee / Missing',
+    statHigherCount: 'Orders with higher fee', statLowerCount: 'Orders with lower fee', statNetDiff: 'Net difference',
+    ordersMissing: 'orders missing',
+    filterAll: '📋 All', filterHigher: '🔴 Higher Fee', filterLower: '🟢 Lower Fee',
+    filterDiff: '⚠️ Difference', filterMatch: '✅ Match',
+    exportLabel: 'Export current view:', btnExcel: '⬇ Excel (.xlsx)', btnCSV: '⬇ CSV',
+    thNo: 'No.', thTracking: 'Tracking', thBM: 'BM #', thCarrier: '◀ Carrier ▶', thBoxme: '◀ Boxme ▶', thDiff: '◀ Diff ▶',
+    thShip: 'Ship', thCOD: 'COD', thTotal: 'Total', thStatus: 'Status',
+    badgeOK: 'OK', badgeCarrierUp: 'Carrier ↑', badgeBoxmeUp: 'Boxme ↑', badgeMissing: 'Missing',
+    showing: 'Showing', of: 'of',
+    btnNewComparison: '← Start New Comparison',
+    statusOK: 'OK', statusHigher: 'Higher fee', statusLower: 'Lower fee', statusMissing: 'Missing',
+    filterLabelAll: 'All', filterLabelHigher: 'Higher_Fee', filterLabelLower: 'Lower_Fee', filterLabelDiff: 'Difference', filterLabelMatch: 'Match',
+    excelPreparing: 'Preparing Excel...', excelSummary: 'Overall Statistics',
+    toastAutoDetect: '🔍 Auto-detected columns', toastTplSaved: '✅ Template saved for ',
+    toastTplExported: '✅ Templates exported', toastTplImported: '✅ Imported ',
+    toastTplImportSuffix: ' templates', toastInvalidTpl: 'Invalid template file',
+    toastSelectCarrier: 'Please select a carrier first', toastUploadBoth: 'Please upload both files',
+    toastMapCarrier: 'Map Carrier Tracking column first', toastMapBoxme: 'Map Boxme Tracking column first',
+    toastEnterName: 'Enter carrier name first', toastSelectFirst: 'Select a carrier first',
+    toastExcelDone: '✅ Excel downloaded!', toastCSVDone: '✅ CSV downloaded!', toastRecords: 'records',
+    records: 'records',
+  },
+  vi: {
+    appTitle: '📦 Đối Soát Vận Chuyển',
+    appSubtitle: 'Đối soát đa hãng vận chuyển · Boxme Global',
+    btnExportTpl: '↓ Mẫu', btnImportTpl: '↑ Nhập',
+    step1: 'Chọn HVC', step2: 'Upload File', step3: 'Ghép Cột', step4: 'Xử Lý', step5: 'Kết Quả',
+    selectCarrier: 'Chọn Hãng Vận Chuyển', selectCarrierSub: 'Chọn hãng hoặc thêm hãng mới',
+    selectPlaceholder: '— Chọn hãng vận chuyển —', customGroup: 'Tùy chỉnh', customOption: '✏️ Hãng khác / Tùy chỉnh',
+    customPlaceholder: 'Nhập tên hãng vận chuyển...',
+    tplLoaded: 'Đã tải mẫu',
+    btnContinueUpload: 'Tiếp tục Upload →',
+    carrierFile: 'File Hãng Vận Chuyển', carrierFileSub: 'Upload hoá đơn/báo cáo từ hãng',
+    boxmeFile: 'File Hệ Thống Boxme', boxmeFileSub: 'Upload file xuất từ Boxme',
+    tapUploadCarrier: 'Nhấn để upload file hãng', tapUploadBoxme: 'Nhấn để upload file Boxme',
+    fileTypes: '.xlsx, .xls, .csv', selectSheet: 'Chọn Sheet',
+    btnContinueMap: 'Tiếp tục Ghép Cột →',
+    colMapping: 'Ghép Cột', colMappingSub: 'Ghép cột để so sánh',
+    autoDetectNotice: 'Đã tự động phát hiện từ file. Điều chỉnh nếu cần.',
+    carrierCols: '📄 Cột File Hãng', boxmeCols: '🗄️ Cột File Boxme',
+    noneOption: '— không —',
+    tolSettings: '⚙️ Cài Đặt Dung Sai', tolFee: 'Dung sai phí', tolWeight: 'Dung sai KL',
+    btnAutoDetect: '🔍 Tự Phát Hiện', btnSaveTemplate: '💾 Lưu Mẫu',
+    previewTitle: '📋 Xem trước dữ liệu (3 dòng đầu)',
+    btnStartRecon: '▶ Bắt Đầu Đối Soát',
+    processing: 'Đang Xử Lý', processingSub: 'Đang chạy đối soát...',
+    procInit: 'Đang khởi tạo...', procLoading: 'Đang tải dữ liệu...', procBuildLookup: 'Đang tạo bảng tra Boxme...',
+    procComparing: 'Đang so sánh...', procCompareProgress: 'Đang so...', procFinal: 'Đang hoàn tất...', procComplete: 'Hoàn tất!',
+    logStart: 'Bắt đầu đối soát...', logCarrierRec: 'Bản ghi hãng:', logBoxmeRec: 'Bản ghi Boxme:',
+    logBoxmeUnique: 'Tracking Boxme duy nhất:', logMatched: 'Khớp:', logMissingBoxme: 'Thiếu trên Boxme:',
+    logMissingCarrier: 'Thiếu trên hãng:', logOK: 'OK:', logDiff: 'Chênh lệch:',
+    reconResults: 'Kết Quả Đối Soát',
+    lblTotal: 'Tổng', lblOK: '✅ Khớp', lblHigherFee: '🔴 Phí cao hơn', lblLowerMissing: '🟠 Phí thấp hơn / Thiếu',
+    statHigherCount: 'Số đơn phí cao hơn', statLowerCount: 'Số đơn phí thấp hơn', statNetDiff: 'Tổng chênh lệch',
+    ordersMissing: 'đơn thiếu',
+    filterAll: '📋 Tất cả', filterHigher: '🔴 Phí cao hơn', filterLower: '🟢 Phí thấp hơn',
+    filterDiff: '⚠️ Chênh lệch', filterMatch: '✅ Khớp',
+    exportLabel: 'Xuất dữ liệu:', btnExcel: '⬇ Excel (.xlsx)', btnCSV: '⬇ CSV',
+    thNo: 'STT', thTracking: 'Tracking', thBM: 'Mã BM', thCarrier: '◀ Hãng ▶', thBoxme: '◀ Boxme ▶', thDiff: '◀ Chênh lệch ▶',
+    thShip: 'Cước', thCOD: 'COD', thTotal: 'Tổng', thStatus: 'Trạng thái',
+    badgeOK: 'Khớp', badgeCarrierUp: 'Hãng ↑', badgeBoxmeUp: 'Boxme ↑', badgeMissing: 'Thiếu',
+    showing: 'Hiển thị', of: 'trên',
+    btnNewComparison: '← So Sánh Mới',
+    statusOK: 'Khớp', statusHigher: 'Phí cao hơn', statusLower: 'Phí thấp hơn', statusMissing: 'Thiếu',
+    filterLabelAll: 'Tat_Ca', filterLabelHigher: 'Phi_Cao_Hon', filterLabelLower: 'Phi_Thap_Hon', filterLabelDiff: 'Chenh_Lech', filterLabelMatch: 'Khop',
+    excelPreparing: 'Đang chuẩn bị Excel...', excelSummary: 'Thống kê tổng quan',
+    toastAutoDetect: '🔍 Đã tự phát hiện cột', toastTplSaved: '✅ Đã lưu mẫu cho ',
+    toastTplExported: '✅ Đã xuất mẫu', toastTplImported: '✅ Đã nhập ',
+    toastTplImportSuffix: ' mẫu', toastInvalidTpl: 'File mẫu không hợp lệ',
+    toastSelectCarrier: 'Vui lòng chọn hãng vận chuyển', toastUploadBoth: 'Vui lòng upload cả 2 file',
+    toastMapCarrier: 'Ghép cột Tracking hãng trước', toastMapBoxme: 'Ghép cột Tracking Boxme trước',
+    toastEnterName: 'Nhập tên hãng trước', toastSelectFirst: 'Chọn hãng trước',
+    toastExcelDone: '✅ Đã tải Excel!', toastCSVDone: '✅ Đã tải CSV!', toastRecords: 'bản ghi',
+    records: 'bản ghi',
+  },
+  th: {
+    appTitle: '📦 ตรวจสอบค่าขนส่ง',
+    appSubtitle: 'ตรวจสอบค่าขนส่งหลายขนส่ง · Boxme Global',
+    btnExportTpl: '↓ เทมเพลต', btnImportTpl: '↑ นำเข้า',
+    step1: 'เลือกขนส่ง', step2: 'อัปโหลด', step3: 'จับคู่คอลัมน์', step4: 'ประมวลผล', step5: 'ผลลัพธ์',
+    selectCarrier: 'เลือกขนส่ง', selectCarrierSub: 'เลือกขนส่งหรือเพิ่มขนส่งใหม่',
+    selectPlaceholder: '— เลือกขนส่ง —', customGroup: 'กำหนดเอง', customOption: '✏️ อื่นๆ / กำหนดเอง',
+    customPlaceholder: 'ระบุชื่อขนส่ง...',
+    tplLoaded: 'โหลดเทมเพลตแล้ว',
+    btnContinueUpload: 'ไปอัปโหลดไฟล์ →',
+    carrierFile: 'ไฟล์ใบแจ้งหนี้ขนส่ง', carrierFileSub: 'อัปโหลดใบแจ้งหนี้/รายงานจากขนส่ง',
+    boxmeFile: 'ไฟล์ระบบ Boxme', boxmeFileSub: 'อัปโหลดไฟล์จาก Boxme',
+    tapUploadCarrier: 'แตะเพื่ออัปโหลดไฟล์ขนส่ง', tapUploadBoxme: 'แตะเพื่ออัปโหลดไฟล์ Boxme',
+    fileTypes: '.xlsx, .xls, .csv', selectSheet: 'เลือกชีท',
+    btnContinueMap: 'ไปจับคู่คอลัมน์ →',
+    colMapping: 'จับคู่คอลัมน์', colMappingSub: 'จับคู่คอลัมน์เพื่อเปรียบเทียบ',
+    autoDetectNotice: 'ตรวจจับอัตโนมัติจากไฟล์ ปรับแต่งได้ตามต้องการ',
+    carrierCols: '📄 คอลัมน์ไฟล์ขนส่ง', boxmeCols: '🗄️ คอลัมน์ไฟล์ Boxme',
+    noneOption: '— ไม่มี —',
+    tolSettings: '⚙️ ตั้งค่าความคลาดเคลื่อน', tolFee: 'ค่าเผื่อค่าบริการ', tolWeight: 'ค่าเผื่อน้ำหนัก',
+    btnAutoDetect: '🔍 ตรวจจับอัตโนมัติ', btnSaveTemplate: '💾 บันทึกเทมเพลต',
+    previewTitle: '📋 ตัวอย่างข้อมูล (3 แถวแรก)',
+    btnStartRecon: '▶ เริ่มตรวจสอบ',
+    processing: 'กำลังประมวลผล', processingSub: 'กำลังตรวจสอบ...',
+    procInit: 'กำลังเริ่มต้น...', procLoading: 'กำลังโหลดข้อมูล...', procBuildLookup: 'กำลังสร้างตาราง Boxme...',
+    procComparing: 'กำลังเปรียบเทียบ...', procCompareProgress: 'เปรียบเทียบ...', procFinal: 'กำลังสรุปผล...', procComplete: 'เสร็จสิ้น!',
+    logStart: 'เริ่มตรวจสอบ...', logCarrierRec: 'รายการขนส่ง:', logBoxmeRec: 'รายการ Boxme:',
+    logBoxmeUnique: 'Tracking Boxme ไม่ซ้ำ:', logMatched: 'จับคู่ได้:', logMissingBoxme: 'ไม่พบใน Boxme:',
+    logMissingCarrier: 'ไม่พบในขนส่ง:', logOK: 'ตรงกัน:', logDiff: 'แตกต่าง:',
+    reconResults: 'ผลการตรวจสอบ',
+    lblTotal: 'ทั้งหมด', lblOK: '✅ ตรงกัน', lblHigherFee: '🔴 ค่าสูงกว่า', lblLowerMissing: '🟠 ค่าต่ำกว่า / ไม่พบ',
+    statHigherCount: 'จำนวนที่ค่าสูงกว่า', statLowerCount: 'จำนวนที่ค่าต่ำกว่า', statNetDiff: 'ผลต่างสุทธิ',
+    ordersMissing: 'รายการไม่พบ',
+    filterAll: '📋 ทั้งหมด', filterHigher: '🔴 ค่าสูงกว่า', filterLower: '🟢 ค่าต่ำกว่า',
+    filterDiff: '⚠️ แตกต่าง', filterMatch: '✅ ตรงกัน',
+    exportLabel: 'ส่งออกมุมมองปัจจุบัน:', btnExcel: '⬇ Excel (.xlsx)', btnCSV: '⬇ CSV',
+    thNo: 'ลำดับ', thTracking: 'Tracking', thBM: 'BM #', thCarrier: '◀ ขนส่ง ▶', thBoxme: '◀ Boxme ▶', thDiff: '◀ ผลต่าง ▶',
+    thShip: 'ค่าส่ง', thCOD: 'COD', thTotal: 'รวม', thStatus: 'สถานะ',
+    badgeOK: 'ตรงกัน', badgeCarrierUp: 'ขนส่ง ↑', badgeBoxmeUp: 'Boxme ↑', badgeMissing: 'ไม่พบ',
+    showing: 'แสดง', of: 'จาก',
+    btnNewComparison: '← เริ่มเปรียบเทียบใหม่',
+    statusOK: 'ตรงกัน', statusHigher: 'ค่าสูงกว่า', statusLower: 'ค่าต่ำกว่า', statusMissing: 'ไม่พบ',
+    filterLabelAll: 'All', filterLabelHigher: 'Higher_Fee', filterLabelLower: 'Lower_Fee', filterLabelDiff: 'Difference', filterLabelMatch: 'Match',
+    excelPreparing: 'กำลังเตรียม Excel...', excelSummary: 'สถิติภาพรวม',
+    toastAutoDetect: '🔍 ตรวจจับคอลัมน์อัตโนมัติแล้ว', toastTplSaved: '✅ บันทึกเทมเพลตสำหรับ ',
+    toastTplExported: '✅ ส่งออกเทมเพลตแล้ว', toastTplImported: '✅ นำเข้า ',
+    toastTplImportSuffix: ' เทมเพลต', toastInvalidTpl: 'ไฟล์เทมเพลตไม่ถูกต้อง',
+    toastSelectCarrier: 'กรุณาเลือกขนส่งก่อน', toastUploadBoth: 'กรุณาอัปโหลดไฟล์ทั้ง 2',
+    toastMapCarrier: 'จับคู่คอลัมน์ Tracking ขนส่งก่อน', toastMapBoxme: 'จับคู่คอลัมน์ Tracking Boxme ก่อน',
+    toastEnterName: 'ระบุชื่อขนส่งก่อน', toastSelectFirst: 'เลือกขนส่งก่อน',
+    toastExcelDone: '✅ ดาวน์โหลด Excel แล้ว!', toastCSVDone: '✅ ดาวน์โหลด CSV แล้ว!', toastRecords: 'รายการ',
+    records: 'รายการ',
+  }
+};
+let currentLang = localStorage.getItem('carrierAuditLang') || 'en';
+function t(key){ return (I18N[currentLang] && I18N[currentLang][key]) || I18N.en[key] || key; }
+function setLang(lang){
+  currentLang = lang;
+  localStorage.setItem('carrierAuditLang', lang);
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === lang));
+  refreshUI();
+}
+function refreshUI(){
+  // Header
+  document.getElementById('app-title').textContent = t('appTitle');
+  document.getElementById('app-subtitle').textContent = t('appSubtitle');
+  document.getElementById('btn-export-tpl').textContent = t('btnExportTpl');
+  document.getElementById('btn-import-tpl').textContent = t('btnImportTpl');
+  // Steps
+  renderSteps(currentStep);
+  // Static sections
+  refreshStaticUI();
+  // If results are available, re-render
+  if(S.results && S.results.length > 0) renderResults();
+}
+function refreshStaticUI(){
+  // Step 1
+  const s1h = document.querySelector('#section-1 .card-header');
+  if(s1h){ s1h.querySelector('h2').textContent = t('selectCarrier'); s1h.querySelector('p').textContent = t('selectCarrierSub'); }
+  document.getElementById('btn-step1').textContent = t('btnContinueUpload');
+  // Carrier dropdown placeholder + custom option
+  const sel = document.getElementById('carrier-select');
+  if(sel && sel.options[0]) sel.options[0].textContent = t('selectPlaceholder');
+  const lastOg = sel ? sel.querySelector('optgroup:last-child') : null;
+  if(lastOg){ lastOg.label = t('customGroup'); if(lastOg.options[0]) lastOg.options[0].textContent = t('customOption'); }
+  // Step 2
+  const s2cards = document.querySelectorAll('#section-2 .card');
+  if(s2cards[0]){ s2cards[0].querySelector('h2').textContent = t('carrierFile'); s2cards[0].querySelector('.card-header p').textContent = t('carrierFileSub'); }
+  if(s2cards[1]){ s2cards[1].querySelector('h2').textContent = t('boxmeFile'); s2cards[1].querySelector('.card-header p').textContent = t('boxmeFileSub'); }
+  const uzTitles = document.querySelectorAll('#section-2 .uz-title');
+  if(uzTitles[0]) uzTitles[0].textContent = t('tapUploadCarrier');
+  if(uzTitles[1]) uzTitles[1].textContent = t('tapUploadBoxme');
+  const sheetLabels = document.querySelectorAll('#section-2 .sheet-sel label');
+  sheetLabels.forEach(l => l.textContent = t('selectSheet'));
+  document.getElementById('btn-step2').textContent = t('btnContinueMap');
+  // Step 3
+  const s3h = document.querySelector('#section-3 .card-header');
+  if(s3h){ s3h.querySelector('h2').textContent = t('colMapping'); s3h.querySelector('p').textContent = t('colMappingSub'); }
+  const autoP = document.querySelector('#section-3 .card-body > p');
+  if(autoP) autoP.textContent = t('autoDetectNotice');
+  const tolTitle = document.querySelector('#section-3 [style*="background:var(--muted)"] > div:first-child');
+  if(tolTitle) tolTitle.textContent = t('tolSettings');
+  const tolLabels = document.querySelectorAll('#section-3 .tol-label');
+  if(tolLabels[0]) tolLabels[0].textContent = t('tolFee');
+  if(tolLabels[1]) tolLabels[1].textContent = t('tolWeight');
+  const btnRow = document.querySelectorAll('#section-3 .btn-row .btn');
+  if(btnRow[0]) btnRow[0].innerHTML = t('btnAutoDetect');
+  if(btnRow[1]) btnRow[1].innerHTML = t('btnSaveTemplate');
+  const startBtn = document.querySelector('#section-3 > button.btn-primary');
+  if(startBtn) startBtn.textContent = t('btnStartRecon');
+  // Step 4
+  const s4h = document.querySelector('#section-4 .card-header');
+  if(s4h){ s4h.querySelector('h2').textContent = t('processing'); s4h.querySelector('p').textContent = t('processingSub'); }
+  // Step 5
+  const s5h = document.querySelector('#section-5 .card-header');
+  if(s5h) s5h.querySelector('h2').textContent = t('reconResults');
+  const exportLbl = document.querySelector('#section-5 .export-label');
+  if(exportLbl) exportLbl.textContent = t('exportLabel');
+  const resetBtn = document.querySelector('#section-5 > button.btn-outline');
+  if(resetBtn) resetBtn.textContent = t('btnNewComparison');
+}
+
+// ════════════════════════════════════════════════════════════
+//  CARRIER REGISTRY
+// ════════════════════════════════════════════════════════════
+const CARRIERS = {
+  'Vietnam 🇻🇳': [
+    {code:'GHN',name:'GHN (Giao Hàng Nhanh)'},{code:'GHTK',name:'GHTK (Giao Hàng Tiết Kiệm)'},
+    {code:'VTP',name:'Viettel Post'},{code:'JT_VN',name:'J&T Express VN'},
+    {code:'NINJA_VN',name:'Ninja Van VN'},{code:'BEST',name:'Best Express'},
+    {code:'SPX_VN',name:'Shopee Express VN'},
+  ],
+  'Thailand 🇹🇭': [
+    {code:'DHL_TH',name:'DHL Express TH'},{code:'KERRY',name:'Kerry Express'},
+    {code:'FLASH',name:'Flash Express'},{code:'INTER_TH',name:'Inter Express (SJ Trans)'},
+    {code:'NIM_TH',name:'NIM Express'},{code:'TLP_TH',name:'Thailand Post (TLP)'},
+    {code:'JT_TH',name:'J&T Express TH'},{code:'NINJA_TH',name:'Ninja Van TH'},
+    {code:'SPX_TH',name:'Shopee Express TH'},
+  ],
+  'Philippines 🇵🇭': [
+    {code:'JT_PH',name:'J&T Express PH'},{code:'NINJA_PH',name:'Ninja Van PH'},
+    {code:'FLASH_PH',name:'Flash Express PH'},{code:'SPX_PH',name:'Shopee Express PH'},
+    {code:'GRAB_PH',name:'Grab Express PH'},
+  ],
+};
+
+// ════════════════════════════════════════════════════════════
+//  COLUMN HINTS (auto-detect keywords — from real SPX/Boxme files)
+// ════════════════════════════════════════════════════════════
+const CARRIER_HINTS = {
+  tracking:       ['tracking number','tracking_number','tracking no','tracking_no','tracking','awb','waybill','bill_code','order_code','courier tracking code','courier tracking','th code','ma_van_don','mã vận đơn','mã bưu gửi','เลขพัสดุ','รหัสพัสดุ','หมายเลขพัสดุ','consignment','consignment no','pno','consignment note no.','barcode','inv_no','เลขที่อ้างอิงอื่น ๆ','เลขที่บิล','parcel id'],
+  bm_number:      ['customer tn','bm number','bm no','boxme','bx_tracking','internal_code','merchant_order','order sn','shipper order id','ref no','reference no','mã đơn hàng','mã tham chiếu','mã khách hàng','หมายเลขอ้างอิง','รหัสลูกค้า','customer order no','merchant order id','out trade no','customer reference 2','customer tracking no.','comp_order_id','order_id','order id','bm code','เลขที่อ้างอิงลูกค้า'],
+  shipping_fee:   ['shipping fee','shipping fee (courier)','freight','freight charge','freight fee','delivery_fee','delivery fee','shipping_cost','cuoc_phi','phi_van_chuyen','cước phí','phí vận chuyển','phí giao hàng','cước chính','ค่าขนส่ง','ค่าจัดส่ง','net amount (excl taxes)','total amount (incl taxes)','total amount','act. received freight','price','total price','ems_price','charge amount','ค่า ems'],
+  cod_fee:        ['cod fee','cod fee (courier)','cod_amount','cod amount','tien_thu_ho','tiền thu hộ','tiền cod','ค่า cod','เงินเก็บเงินปลายทาง','money colect','money collect','cod amount','product_price'],
+  weight:         ['chargeable weight','chargeable_weight','weight (courier)','weight','actual_weight','charged_weight','kg','khoi_luong','trọng lượng','trọng lượng tính cước','cân nặng','khối lượng','น้ำหนัก','น้ำหนักที่คิด','chargeable weight (kg)','chargable weight','actual weight','announce weight','product_weight'],
+  overweight_fee: ['overweight fee','overweight fee (courier)','over weight','overweight','overweight charge','ow fee','phi_qua_can','phí vượt cân','phí quá cân','phụ phí cân nặng','phụ phí vượt cân','ค่าน้ำหนักเกิน'],
+  remote_fee:     ['remote area','remote fee','remote fee (courier)','remote area fee','remote area charge','remote area surcharge','vùng xa','phụ phí vùng xa','phụ phí vùng sâu vùng xa','ค่าพื้นที่ห่างไกล','freight remote area','remote area/tourism economic zone surcharge','พื้นที่พิเศษ','ค่าข้ามเกาะ'],
+  insurance_fee:  ['insurance fee','insurance fee (courier)','insurance','insurance_fee','insurance charge','phí bảo hiểm','phí khai giá','phi_bao_hiem','bảo hiểm hàng hóa','ค่าประกัน','ค่าประกันภัย','svp declared value','freight insurance','insurance_price'],
+  return_fee:     ['return fee','return fee (courier)','return_fee','return charge','phí hoàn','phí chuyển hoàn','phí hoàn hàng','phi_hoan','ค่าคืน','ค่าส่งคืน','ค่าคืนพัสดุ','happy return'],
+  other_fees:     ['other fee','other fee (courier)','other_fees','other fees','other charges','administrative fee','phi_khac','phí khác','phí phát sinh','phụ phí khác','ค่าอื่นๆ','ค่าบริการ','ค่าบริการอื่น','fuel surcharge','peak surcharge','service_price','flash care','packaging fee'],
+  status:         ['status','delivery_status','delivery status','parcel status','granular status','trang_thai','trạng thái','trạng thái giao hàng','trạng thái đơn','สถานะ','สถานะการจัดส่ง','สถานะพัสดุ','remark','หมายเหตุ','status_desc','state'],
+};
+const BOXME_HINTS = {
+  tracking: ['tracking number','tracking_number','tracking no','courier tracking code','tracking','bm number','order_code','ma_van_don','mã vận đơn','เลขพัสดุ','หมายเลขพัสดุ'],
+  shipping_fee: ['shipping fee','shipping fee (system)','shipping_cost','total_fee','total fee (system)','phi_van_chuyen','cuoc_phi','phí vận chuyển','cước phí','ค่าขนส่ง','ค่าจัดส่ง'],
+  cod_fee: ['cod fee','cod fee (system)','cod_amount','cod amount','tien_thu_ho','tiền thu hộ','tiền cod','ค่า cod','เงินเก็บเงินปลายทาง','money colect','money collect'],
+  weight: ['weight','weight (system)','chargeable ff weight','fulfill cw','actual_weight','kg','khoi_luong','trọng lượng','cân nặng','khối lượng','น้ำหนัก','น้ำหนักที่คิด'],
+  overweight_fee: ['overweight fee','over weight','overweight','ow fee','phí vượt cân','phí quá cân','ค่าน้ำหนักเกิน'],
+  remote_fee: ['remote fee','remote area','remote area fee','phụ phí vùng xa','ค่าพื้นที่ห่างไกล'],
+  insurance_fee: ['insurance fee','insurance','insurance_fee','extra service fee','phí bảo hiểm','ค่าประกัน','ค่าประกันภัย'],
+  return_fee: ['return fee','return_fee','phí hoàn','phí chuyển hoàn','ค่าคืน','ค่าส่งคืน'],
+  other_fees: ['other fee','other fee (system)','other fee (chang courier fee)','other_fees','other fees','phí khác','ค่าอื่นๆ'],
+};
+const CARRIER_FIELDS = ['tracking','bm_number','shipping_fee','cod_fee','weight','overweight_fee','remote_fee','insurance_fee','return_fee','other_fees','status'];
+const BOXME_FIELDS = ['tracking','shipping_fee','cod_fee','weight','overweight_fee','remote_fee','insurance_fee','return_fee','other_fees'];
+const FIELD_LABELS = {tracking:'Tracking #',bm_number:'BM Number',shipping_fee:'Shipping Fee',cod_fee:'COD Fee',weight:'Weight',overweight_fee:'Overweight Fee',remote_fee:'Remote Fee',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Fees',status:'Status'};
+
+// ════════════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════════════
+const S = {
+  carrier:'', carrierName:'',
+  carrierWb:null, carrierRows:null, carrierCols:[],
+  boxmeWb:null, boxmeRows:null, boxmeCols:[],
+  carrierMap:{}, boxmeMap:{},
+  results:[], filtered:[], filter:'all',
+  page:1, pageSize:50,
+  carrierFileName:'', boxmeFileName:'',
+};
+function getStepLabels(){ return [t('step1'),t('step2'),t('step3'),t('step4'),t('step5')]; }
+
+// ════════════════════════════════════════════════════════════
+//  DEFAULT TEMPLATES (pre-populated for all carriers)
+// ════════════════════════════════════════════════════════════
+const _BM={tracking:'Tracking number',shipping_fee:'Shipping fee',cod_fee:'Cod fee',weight:'Weight',overweight_fee:'Overweight fee',remote_fee:'Remote fee',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Other fee (Chang courier fee)'};
+const DEFAULT_TEMPLATES={
+GHN:{name:'GHN (Giao Hàng Nhanh)',carrierMapping:{tracking:'Mã vận đơn',bm_number:'Mã đơn hàng',shipping_fee:'Phí vận chuyển',cod_fee:'Tiền thu hộ',weight:'Trọng lượng (kg)',overweight_fee:'Phí vượt cân',remote_fee:'Phụ phí vùng xa',insurance_fee:'Phí bảo hiểm',return_fee:'Phí hoàn hàng',other_fees:'Phí khác',status:'Trạng thái'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+GHTK:{name:'GHTK (Giao Hàng Tiết Kiệm)',carrierMapping:{tracking:'Mã vận đơn',bm_number:'Mã đơn hàng',shipping_fee:'Cước phí',cod_fee:'Tiền thu hộ (COD)',weight:'Khối lượng (kg)',overweight_fee:'Phụ phí cân nặng',remote_fee:'Phụ phí vùng xa',insurance_fee:'Phí bảo hiểm',return_fee:'Phí hoàn',other_fees:'Phí khác',status:'Trạng thái đơn'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+VTP:{name:'Viettel Post',carrierMapping:{tracking:'Mã bưu gửi',bm_number:'Mã khách hàng',shipping_fee:'Cước chính',cod_fee:'Tiền COD',weight:'Trọng lượng',overweight_fee:'Cước vượt cân',remote_fee:'Phụ phí vùng xa',insurance_fee:'Phí khai giá',return_fee:'Phí hoàn',other_fees:'Phụ phí khác',status:'Trạng thái'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+JT_VN:{name:'J&T Express VN',carrierMapping:{tracking:'Mã vận đơn',bm_number:'Mã đơn hàng KH',shipping_fee:'Phí vận chuyển',cod_fee:'Tiền thu hộ',weight:'Trọng lượng tính cước (kg)',overweight_fee:'Phí quá cân',remote_fee:'Phụ phí vùng sâu vùng xa',insurance_fee:'Phí bảo hiểm',return_fee:'Phí chuyển hoàn',other_fees:'Phí phát sinh',status:'Trạng thái giao hàng'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+NINJA_VN:{name:'Ninja Van VN',carrierMapping:{tracking:'Tracking ID',bm_number:'Shipper Order ID',shipping_fee:'Delivery Fee',cod_fee:'COD Amount',weight:'Weight (kg)',overweight_fee:'Overweight Fee',remote_fee:'Remote Area Surcharge',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Fees',status:'Granular Status'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+BEST:{name:'Best Express',carrierMapping:{tracking:'Mã vận đơn',bm_number:'Mã tham chiếu',shipping_fee:'Phí giao hàng',cod_fee:'Tiền thu hộ',weight:'Trọng lượng tính phí (kg)',overweight_fee:'Phụ phí vượt cân',remote_fee:'Phụ phí vùng xa',insurance_fee:'Phí bảo hiểm hàng hóa',return_fee:'Phí hoàn hàng',other_fees:'Phí khác',status:'Trạng thái'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+SPX_VN:{name:'Shopee Express VN',carrierMapping:{tracking:'Tracking number',bm_number:'Customer TN',shipping_fee:'Shipping fee',cod_fee:'COD fee',weight:'Chargeable weight',overweight_fee:'Overweight fee',remote_fee:'Remote Area',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Administrative Fee',status:'Remark'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+DHL_TH:{name:'DHL Express TH',carrierSheetHint:['Shipping'],boxmeSheetHint:['Order'],headerRowHint:13,carrierMapping:{tracking:'Consignment Note No.',bm_number:'Customer Reference 2',shipping_fee:'Net Amount (Excl Taxes)',cod_fee:'CoD Amount',weight:'Chargable Weight',overweight_fee:'',remote_fee:'Freight Remote Area',insurance_fee:'',return_fee:'',other_fees:'Fuel Surcharge',status:''},boxmeMapping:{tracking:'Courier tracking code',shipping_fee:'Shipping fee',cod_fee:'Cod fee',weight:'Chargeable FF Weight',overweight_fee:'Overweight fee',remote_fee:'Remote fee',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Other fee (Chang courier fee)'},updatedAt:'2026-03-10T00:00:00.000Z'},
+KERRY:{name:'Kerry Express',carrierSheetHint:['invoice_details'],boxmeSheetHint:['Order'],headerRowHint:12,carrierMapping:{tracking:'Consignment No',bm_number:'Ref No',shipping_fee:'Freight Charge',cod_fee:'COD Amount',weight:'Chargeable Weight',overweight_fee:'Overweight Charge',remote_fee:'Remote Area Charge',insurance_fee:'Insurance Charge',return_fee:'Return Charge',other_fees:'Other Charges',status:'Status'},boxmeMapping:{tracking:'Courier tracking code',shipping_fee:'Shipping fee',cod_fee:'Cod fee',weight:'Chargeable FF Weight',overweight_fee:'Overweight fee',remote_fee:'Remote fee',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Other fee (Chang courier fee)'},updatedAt:'2026-03-10T00:00:00.000Z'},
+FLASH:{name:'Flash Express',carrierSheetHint:['Shipping'],boxmeSheetHint:['Order'],headerRowHint:2,carrierMapping:{tracking:'Tracking Number',bm_number:'External order number',shipping_fee:'Act. Received Freight',cod_fee:'COD Amount',weight:'Chargeable Weight',overweight_fee:'',remote_fee:'Remote Area/Tourism economic zone surcharge',insurance_fee:'Freight Insurance',return_fee:'Happy Return',other_fees:'Flash Care',status:'State'},boxmeMapping:{tracking:'Courier tracking code',shipping_fee:'Shipping fee',cod_fee:'Cod fee',weight:'Chargeable FF Weight',overweight_fee:'Overweight fee',remote_fee:'Remote fee',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Other fee (Chang courier fee)'},updatedAt:'2026-03-10T00:00:00.000Z'},
+INTER_TH:{name:'Inter Express (SJ Trans)',carrierSheetHint:['SJ Trans'],boxmeSheetHint:['Order'],headerRowHint:4,carrierMapping:{tracking:'BARCODE',bm_number:'Order ID',shipping_fee:'PRICE',cod_fee:'',weight:'WEIGHT',overweight_fee:'',remote_fee:'',insurance_fee:'INSURANCE',return_fee:'',other_fees:'',status:''},boxmeMapping:{tracking:'Courier tracking code',shipping_fee:'Shipping fee',cod_fee:'Cod fee',weight:'Chargeable FF Weight',overweight_fee:'Overweight fee',remote_fee:'Remote fee',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Other fee (Chang courier fee)'},updatedAt:'2026-03-10T00:00:00.000Z'},
+NIM_TH:{name:'NIM Express',carrierSheetHint:['รายงาน'],boxmeSheetHint:['Order'],headerRowHint:3,carrierMapping:{tracking:'เลขที่อ้างอิงอื่น ๆ',bm_number:'รหัสลูกค้า',shipping_fee:'ค่าขนส่ง',cod_fee:'',weight:'น้ำหนัก',overweight_fee:'',remote_fee:'',insurance_fee:'',return_fee:'',other_fees:'',status:''},boxmeMapping:{tracking:'Courier tracking code',shipping_fee:'Shipping fee',cod_fee:'Cod fee',weight:'Chargeable FF Weight',overweight_fee:'Overweight fee',remote_fee:'Remote fee',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Other fee (Chang courier fee)'},updatedAt:'2026-03-10T00:00:00.000Z'},
+TLP_TH:{name:'Thailand Post (TLP)',carrierSheetHint:['THailand Post','Thailand Post'],boxmeSheetHint:['Order'],headerRowHint:1,carrierMapping:{tracking:'BARCODE',bm_number:'COMP_ORDER_ID',shipping_fee:'EMS_PRICE',cod_fee:'PRODUCT_PRICE',weight:'PRODUCT_WEIGHT',overweight_fee:'',remote_fee:'',insurance_fee:'INSURANCE_PRICE',return_fee:'',other_fees:'SERVICE_PRICE',status:'STATUS_DESC'},boxmeMapping:{tracking:'Courier tracking code',shipping_fee:'Shipping fee',cod_fee:'Cod fee',weight:'Chargeable FF Weight',overweight_fee:'Overweight fee',remote_fee:'Remote fee',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Other fee (Chang courier fee)'},updatedAt:'2026-03-10T00:00:00.000Z'},
+JT_TH:{name:'J&T Express TH',carrierMapping:{tracking:'Tracking No',bm_number:'Customer Order No',shipping_fee:'Delivery Fee',cod_fee:'COD Amount',weight:'Chargeable Weight (kg)',overweight_fee:'Overweight Fee',remote_fee:'Remote Area Surcharge',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Charges',status:'Status'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+NINJA_TH:{name:'Ninja Van TH',carrierMapping:{tracking:'Tracking ID',bm_number:'Shipper Order ID',shipping_fee:'Delivery Fee',cod_fee:'COD Amount',weight:'Weight (kg)',overweight_fee:'Overweight Fee',remote_fee:'Remote Area Surcharge',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Fees',status:'Granular Status'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+SPX_TH:{name:'Shopee Express TH',carrierMapping:{tracking:'Tracking number',bm_number:'Customer TN',shipping_fee:'Shipping fee',cod_fee:'COD fee',weight:'Chargeable weight',overweight_fee:'Overweight fee',remote_fee:'Remote Area',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Administrative Fee',status:'Remark'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+JT_PH:{name:'J&T Express PH',carrierMapping:{tracking:'Waybill No',bm_number:'Customer Order No',shipping_fee:'Freight Fee',cod_fee:'COD Amount',weight:'Chargeable Weight (kg)',overweight_fee:'Overweight Fee',remote_fee:'Remote Area Surcharge',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Charges',status:'Status'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+NINJA_PH:{name:'Ninja Van PH',carrierMapping:{tracking:'Tracking ID',bm_number:'Shipper Order ID',shipping_fee:'Delivery Fee',cod_fee:'COD Amount',weight:'Weight (kg)',overweight_fee:'Overweight Fee',remote_fee:'Remote Area Surcharge',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Fees',status:'Granular Status'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+FLASH_PH:{name:'Flash Express PH',carrierMapping:{tracking:'PNO',bm_number:'Out Trade No',shipping_fee:'Shipping Fee',cod_fee:'COD Amount',weight:'Weight (kg)',overweight_fee:'Overweight Fee',remote_fee:'Remote Area Fee',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Fees',status:'Parcel Status'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+SPX_PH:{name:'Shopee Express PH',carrierMapping:{tracking:'Tracking number',bm_number:'Customer TN',shipping_fee:'Shipping fee',cod_fee:'COD fee',weight:'Chargeable weight',overweight_fee:'Overweight fee',remote_fee:'Remote Area',insurance_fee:'Insurance fee',return_fee:'Return fee',other_fees:'Administrative Fee',status:'Remark'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+GRAB_PH:{name:'Grab Express PH',carrierMapping:{tracking:'Tracking Number',bm_number:'Merchant Order ID',shipping_fee:'Delivery Fee',cod_fee:'COD Amount',weight:'Weight (kg)',overweight_fee:'Overweight Fee',remote_fee:'Remote Area Surcharge',insurance_fee:'Insurance Fee',return_fee:'Return Fee',other_fees:'Other Charges',status:'Delivery Status'},boxmeMapping:{..._BM},updatedAt:'2026-03-10T00:00:00.000Z'},
+};
+
+// ════════════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════════════
+(function init(){
+  // Populate carrier dropdown
+  const sel = document.getElementById('carrier-select');
+  Object.entries(CARRIERS).forEach(([group,list])=>{
+    const og = document.createElement('optgroup');
+    og.label = group;
+    list.forEach(c=>{const o=document.createElement('option');o.value=c.code;o.textContent=c.name;og.appendChild(o)});
+    sel.appendChild(og);
+  });
+  const og=document.createElement('optgroup');og.label=t('customGroup');
+  const o=document.createElement('option');o.value='CUSTOM';o.textContent=t('customOption');og.appendChild(o);
+  sel.appendChild(og);
+  // Seed/re-seed localStorage with defaults when version changes
+  const TEMPLATE_VERSION = 4;
+  const storedVersion = localStorage.getItem('carrierAuditTemplateVersion');
+  if(!storedVersion || parseInt(storedVersion) < TEMPLATE_VERSION){
+    localStorage.removeItem('carrierAuditTemplates');
+    saveTemplates({...DEFAULT_TEMPLATES});
+    localStorage.setItem('carrierAuditTemplateVersion', String(TEMPLATE_VERSION));
+  }
+  renderSteps(1);
+  // Apply saved language on init
+  document.querySelectorAll('.lang-btn').forEach(b => b.classList.toggle('active', b.dataset.lang === currentLang));
+  refreshStaticUI();
+})();
+
+// ════════════════════════════════════════════════════════════
+//  TEMPLATES
+// ════════════════════════════════════════════════════════════
+function loadTemplates(){try{const saved=JSON.parse(localStorage.getItem('carrierAuditTemplates')||'{}');return {...DEFAULT_TEMPLATES,...saved}}catch{return {...DEFAULT_TEMPLATES}}}
+function saveTemplates(d){try{localStorage.setItem('carrierAuditTemplates',JSON.stringify(d))}catch(e){console.error(e)}}
+function saveCurrentTemplate(){
+  let code=S.carrier;
+  if(code==='CUSTOM'){
+    const n=document.getElementById('custom-carrier-name').value.trim();
+    if(!n){toast(t('toastEnterName'));return}
+    code=n.toUpperCase().replace(/\s+/g,'_');
+  }
+  if(!code){toast(t('toastSelectFirst'));return}
+  const tpls=loadTemplates();
+  tpls[code]={name:S.carrierName||code,carrierMapping:{...S.carrierMap},boxmeMapping:{...S.boxmeMap},updatedAt:new Date().toISOString()};
+  saveTemplates(tpls);
+  toast(t('toastTplSaved')+code);
+}
+function exportTemplatesJSON(){
+  const d=JSON.stringify(loadTemplates(),null,2);
+  const b=new Blob([d],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download='carrier_audit_templates.json';a.click();
+  URL.revokeObjectURL(a.href);toast(t('toastTplExported'));
+}
+function importTemplatesJSON(e){
+  const f=e.target.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{try{
+    const imp=JSON.parse(ev.target.result);
+    const merged={...loadTemplates(),...imp};
+    saveTemplates(merged);toast(t('toastTplImported')+Object.keys(imp).length+t('toastTplImportSuffix'));
+  }catch{toast(t('toastInvalidTpl'))}};
+  r.readAsText(f);e.target.value='';
+}
+
+// ════════════════════════════════════════════════════════════
+//  NAVIGATION
+// ════════════════════════════════════════════════════════════
+let currentStep=1;
+function renderSteps(n){
+  const bar=document.getElementById('steps-bar');
+  const labels=getStepLabels();
+  bar.innerHTML=labels.map((l,i)=>{
+    const s=i+1;const cls=s<n?'step done':s===n?'step active':'step';
+    const line=i<labels.length-1?`<div class="step-line${s<n?' done':''}" id="line-${s}"></div>`:'';
+    return `<div class="${cls}" id="step${s}-tab" onclick="goStep(${s})"><div class="step-dot">${s<n?'✓':s}</div><div class="step-label">${l}</div></div>${line}`;
+  }).join('');
+}
+function goStep(n){
+  if(n>1&&!S.carrier){toast(t('toastSelectCarrier'));return}
+  if(n>2&&(!S.carrierRows||!S.boxmeRows)){toast(t('toastUploadBoth'));return}
+  if(n===4){runProcessing();return}
+  showSection(n);
+}
+function showSection(n){
+  [1,2,3,4,5].forEach(i=>document.getElementById('section-'+i).classList.toggle('hidden',i!==n));
+  renderSteps(n);currentStep=n;window.scrollTo(0,0);
+}
+
+// ════════════════════════════════════════════════════════════
+//  CARRIER SELECT
+// ════════════════════════════════════════════════════════════
+function onCarrierChange(){
+  const sel=document.getElementById('carrier-select');
+  S.carrier=sel.value;
+  const isCustom=S.carrier==='CUSTOM';
+  document.getElementById('custom-carrier-box').classList.toggle('hidden',!isCustom);
+  if(!isCustom){
+    const allC=Object.values(CARRIERS).flat();
+    const c=allC.find(x=>x.code===S.carrier);
+    S.carrierName=c?c.name:S.carrier;
+  }else{S.carrierName=''}
+  // Load template if exists
+  const tpls=loadTemplates();
+  const tpl=tpls[S.carrier];
+  const badge=document.getElementById('template-badge');
+  if(tpl){
+    badge.classList.remove('hidden');
+    document.getElementById('tpl-badge-text').textContent='💾 Template: '+tpl.name+' ('+new Date(tpl.updatedAt).toLocaleDateString()+')';
+    S.carrierMap={...tpl.carrierMapping};S.boxmeMap={...tpl.boxmeMapping};
+  }else{badge.classList.add('hidden');S.carrierMap={};S.boxmeMap={}}
+  document.getElementById('btn-step1').disabled=!S.carrier;
+}
+
+// ════════════════════════════════════════════════════════════
+//  FILE LOADING
+// ════════════════════════════════════════════════════════════
+function onDrag(e,id){e.preventDefault();document.getElementById(id).classList.add('drag')}
+function offDrag(id){document.getElementById(id).classList.remove('drag')}
+function onDrop(e,which){e.preventDefault();offDrag(which+'-zone');if(e.dataTransfer.files.length)fakeLoad(e.dataTransfer.files[0],which)}
+function fakeLoad(file,which){const dt=new DataTransfer();dt.items.add(file);document.getElementById(which+'-input').files=dt.files;loadFile({target:{files:dt.files}},which)}
+
+function loadFile(e,which){
+  const file=e.target.files[0];if(!file)return;
+  S[which+'FileName']=file.name;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const wb=XLSX.read(ev.target.result,{type:'array'});
+    S[which+'Wb']=wb;
+    // Badge
+    const badge=document.getElementById(which+'-badge');
+    badge.innerHTML=`<div class="file-badge"><span>📊</span><div><div class="fb-name">${file.name}</div><div class="fb-info">${wb.SheetNames.length} sheets · ${(file.size/1024).toFixed(0)} KB</div></div><button class="fb-remove" onclick="removeFile('${which}')">✕</button></div>`;
+    badge.classList.remove('hidden');
+    // Sheet selector with auto-detection from template hints
+    const sel=document.getElementById(which+'-sheet');
+    sel.innerHTML=wb.SheetNames.map(s=>`<option value="${s}">${s}</option>`).join('');
+    document.getElementById(which+'-sheet-sel').classList.remove('hidden');
+    // Auto-select sheet based on template hints
+    const tpls=loadTemplates();const tpl=tpls[S.carrier];
+    if(tpl){
+      const hintKey=which==='carrier'?'carrierSheetHint':'boxmeSheetHint';
+      const sheetHints=tpl[hintKey]||[];
+      const lowerSheetNames=wb.SheetNames.map(s=>s.toLowerCase().trim());
+      let matched=false;
+      for(const hint of sheetHints){
+        const idx=lowerSheetNames.indexOf(hint.toLowerCase().trim());
+        if(idx>=0){sel.value=wb.SheetNames[idx];matched=true;break}
+      }
+      // Fallback: skip BMS-style sheets for carrier files (sheets named BMS/Order are Boxme data)
+      if(!matched && which==='carrier'){
+        const skipSheets=['bms','order','product','bms cod','bms shipping','total'];
+        const nonBms=wb.SheetNames.filter(s=>!skipSheets.includes(s.toLowerCase().trim()));
+        if(nonBms.length>0)sel.value=nonBms[0];
+      }
+      if(!matched && which==='boxme'){
+        const bmSheets=['order','bms','download from bms'];
+        const bm=wb.SheetNames.find(s=>bmSheets.includes(s.toLowerCase().trim()));
+        if(bm)sel.value=bm;
+      }
+    }
+    onSheetSelect(which);
+  };
+  reader.readAsArrayBuffer(file);
+}
+function onSheetSelect(which){
+  const wb=S[which+'Wb'];if(!wb)return;
+  const ws=wb.Sheets[document.getElementById(which+'-sheet').value];
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  // Smart header detection
+  let hRow=0;
+  for(let i=0;i<Math.min(raw.length,25);i++){
+    const ne=raw[i].filter(c=>c!==''&&typeof c==='string').length;
+    if(ne>4){hRow=i;break}
+  }
+  const headers=raw[hRow].map((h,i)=>h?String(h).trim():'Col_'+i);
+  const dataRows=raw.slice(hRow+1).filter(r=>r.some(c=>c!==''));
+  S[which+'Cols']=headers;
+  S[which+'Rows']=dataRows.map(row=>{const o={};headers.forEach((h,i)=>o[h]=row[i]??'');return o});
+  // Auto-detect columns — ALWAYS run, even when template is loaded
+  // Merge carrier-specific multilingual hints from template with global hints
+  const tpls=loadTemplates();
+  const tpl=tpls[S.carrier];
+  if(which==='carrier'){
+    const mergedHints=mergeHints(CARRIER_HINTS, tpl&&tpl.carrierHints);
+    S.carrierMap=smartDetect(headers,mergedHints,S.carrierMap);
+  }
+  if(which==='boxme'){
+    const mergedHints=mergeHints(BOXME_HINTS, tpl&&tpl.boxmeHints);
+    S.boxmeMap=smartDetect(headers,mergedHints,S.boxmeMap);
+  }
+  checkStep2Ready();
+  if(which==='carrier')buildCarrierMapping();
+  if(which==='boxme')buildBoxmeMapping();
+}
+function removeFile(which){
+  S[which+'Wb']=null;S[which+'Rows']=null;S[which+'Cols']=[];S[which+'FileName']='';
+  document.getElementById(which+'-badge').classList.add('hidden');
+  document.getElementById(which+'-sheet-sel').classList.add('hidden');
+  document.getElementById(which+'-input').value='';
+  checkStep2Ready();
+}
+function checkStep2Ready(){document.getElementById('btn-step2').disabled=!(S.carrierRows&&S.boxmeRows)}
+
+// ════════════════════════════════════════════════════════════
+//  SMART AUTO DETECT COLUMNS (4-tier matching + multilingual)
+// ════════════════════════════════════════════════════════════
+// mergeHints — delegated to shared AuditCore module
+function mergeHints(globalHints, carrierHints){ return AuditCore.mergeHints(globalHints, carrierHints); }
+// smartDetect — delegated to shared AuditCore module
+function smartDetect(headers, hints, templateMap){ return AuditCore.smartDetect(headers, hints, templateMap); }
+function autoDetectAll(){
+  const tpls=loadTemplates();const tpl=tpls[S.carrier];
+  if(S.carrierCols.length) S.carrierMap=smartDetect(S.carrierCols,mergeHints(CARRIER_HINTS,tpl&&tpl.carrierHints),S.carrierMap);
+  if(S.boxmeCols.length) S.boxmeMap=smartDetect(S.boxmeCols,mergeHints(BOXME_HINTS,tpl&&tpl.boxmeHints),S.boxmeMap);
+  buildCarrierMapping();buildBoxmeMapping();
+  toast(t('toastAutoDetect'));
+}
+
+// ════════════════════════════════════════════════════════════
+//  COLUMN MAPPING UI
+// ════════════════════════════════════════════════════════════
+function buildMapping(containerId,fields,headers,map,hints,prefix){
+  const c=document.getElementById(containerId);
+  const hdr=prefix==='carrier'?t('carrierCols'):t('boxmeCols');
+  const bg=prefix==='carrier'?'var(--accent-bg)':'var(--success-bg)';
+  const clr=prefix==='carrier'?'var(--accent)':'var(--success)';
+  let h=`<div class="col-section-title" style="background:${bg};color:${clr}">${hdr}</div>`;
+  fields.forEach(f=>{
+    const opts=['<option value="">'+t('noneOption')+'</option>',...headers.map(col=>`<option value="${col}"${map[f]===col?' selected':''}>${col}</option>`)].join('');
+    h+=`<div class="col-map-row"><span class="col-map-label">${FIELD_LABELS[f]||f}${f==='tracking'?' *':''}</span><span class="col-map-arrow">→</span><select class="col-map-select" onchange="onMapChange('${prefix}','${f}',this.value)">${opts}</select></div>`;
+  });
+  c.innerHTML=h;
+}
+function buildCarrierMapping(){buildMapping('carrier-col-section',CARRIER_FIELDS,S.carrierCols,S.carrierMap,CARRIER_HINTS,'carrier');buildPreview()}
+function buildBoxmeMapping(){buildMapping('boxme-col-section',BOXME_FIELDS,S.boxmeCols,S.boxmeMap,BOXME_HINTS,'boxme');buildPreview()}
+function onMapChange(prefix,field,value){
+  if(prefix==='carrier')S.carrierMap[field]=value||null;
+  else S.boxmeMap[field]=value||null;
+}
+function buildPreview(){
+  const sec=document.getElementById('preview-section');
+  if(!S.carrierRows||S.carrierRows.length===0){sec.innerHTML='';return}
+  const cols=S.carrierCols.slice(0,8);
+  const rows=S.carrierRows.slice(0,3);
+  let h='<div class="data-preview" style="margin-top:12px"><table><thead><tr>'+cols.map(c=>'<th>'+c+'</th>').join('')+'</tr></thead><tbody>';
+  rows.forEach(r=>{h+='<tr>'+cols.map(c=>'<td>'+(r[c]??'')+'</td>').join('')+'</tr>'});
+  h+='</tbody></table></div>';
+  sec.innerHTML='<div style="font-size:10px;font-weight:600;color:var(--muted-fg);margin-top:12px">'+t('previewTitle')+'</div>'+h;
+}
+
+// ════════════════════════════════════════════════════════════
+//  PROCESSING / RECONCILIATION
+// ════════════════════════════════════════════════════════════
+function log(msg){const b=document.getElementById('proc-log');b.innerHTML+='['+new Date().toLocaleTimeString()+'] '+msg+'\n';b.scrollTop=b.scrollHeight}
+function setProg(pct,label){document.getElementById('proc-bar').style.width=pct+'%';document.getElementById('proc-pct').textContent=pct+'%';document.getElementById('proc-status').textContent=label}
+function sleep(ms){return new Promise(r=>setTimeout(r,ms))}
+
+async function runProcessing(){
+  showSection(4);await sleep(50);
+  document.getElementById('proc-log').innerHTML='';
+  const cm=S.carrierMap, bm=S.boxmeMap;
+  if(!cm.tracking){toast(t('toastMapCarrier'));showSection(3);return}
+  if(!bm.tracking){toast(t('toastMapBoxme'));showSection(3);return}
+  const tolFee=parseFloat(document.getElementById('tol-fee').value)||0.01;
+  const tolWt=parseFloat(document.getElementById('tol-wt').value)||0;
+
+  log(t('logStart'));setProg(5,t('procLoading'));await sleep(60);
+  const cData=S.carrierRows, bData=S.boxmeRows;
+  log(t('logCarrierRec')+' '+cData.length);log(t('logBoxmeRec')+' '+bData.length);
+  setProg(15,t('procBuildLookup'));await sleep(60);
+
+  // Delegate core reconciliation to shared module
+  setProg(30,t('procComparing'));await sleep(60);
+  const out=AuditCore.reconcile(cData,bData,cm,bm,tolFee);
+  const results=out.results, matched=out.matched, missing=out.missing, missingInCarrier=out.missingInCarrier;
+
+  setProg(90,t('procFinal'));await sleep(80);
+  S.results=results;
+  log(t('logMatched')+' '+matched+' · '+t('logMissingBoxme')+' '+missing+' · '+t('logMissingCarrier')+' '+missingInCarrier);
+  log(t('logOK')+' '+results.filter(r=>r.status==='ok').length);
+  log(t('logDiff')+' '+results.filter(r=>r.status!=='ok'&&r.status!=='missing').length);
+  setProg(100,t('procComplete'));await sleep(300);
+  renderResults();showSection(5);
+}
+
+// ════════════════════════════════════════════════════════════
+//  RESULTS RENDERING
+// ════════════════════════════════════════════════════════════
+function renderResults(){
+  const r=S.results;
+  const ok=r.filter(x=>x.status==='ok').length;
+  const cOver=r.filter(x=>x.status==='carrier_over').length;
+  const bOver=r.filter(x=>x.status==='boxme_over').length;
+  const miss=r.filter(x=>x.status==='missing').length;
+  // Calculate monetary stats
+  const upRows=r.filter(x=>x.status==='carrier_over');
+  const downRows=r.filter(x=>x.status==='boxme_over');
+  const totalUp=upRows.reduce((s,x)=>s+Math.abs(x.d_total),0);
+  const totalDown=downRows.reduce((s,x)=>s+Math.abs(x.d_total),0);
+  const netChange=totalUp-totalDown;
+
+  document.getElementById('result-sub').textContent=r.length.toLocaleString()+' '+t('records')+' · '+new Date().toLocaleDateString();
+  document.getElementById('summary-cards').innerHTML=`
+    <div class="summary-card sc-total"><div class="sc-val">${r.length.toLocaleString()}</div><div class="sc-lbl">${t('lblTotal')}</div></div>
+    <div class="summary-card sc-ok"><div class="sc-val">${ok.toLocaleString()}</div><div class="sc-lbl">${t('lblOK')}</div></div>
+    <div class="summary-card sc-danger"><div class="sc-val">${cOver.toLocaleString()}</div><div class="sc-lbl">${t('lblHigherFee')}</div></div>
+    <div class="summary-card sc-warn"><div class="sc-val">${(bOver+miss).toLocaleString()}</div><div class="sc-lbl">${t('lblLowerMissing')}</div></div>`;
+
+  // Stats row: increase, decrease, net change
+  document.getElementById('stats-row').innerHTML=`
+    <div class="stat-card stat-up">
+      <div class="stat-icon">📈</div>
+      <div><div class="stat-val">${cOver.toLocaleString()}</div><div class="stat-lbl">${t('statHigherCount')}</div><div class="stat-amt">+${totalUp.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    </div>
+    <div class="stat-card stat-down">
+      <div class="stat-icon">📉</div>
+      <div><div class="stat-val">${bOver.toLocaleString()}</div><div class="stat-lbl">${t('statLowerCount')}</div><div class="stat-amt">-${totalDown.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div></div>
+    </div>
+    <div class="stat-card stat-net">
+      <div class="stat-icon">💰</div>
+      <div><div class="stat-val">${netChange>=0?'+':''}${netChange.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</div><div class="stat-lbl">${t('statNetDiff')}</div><div class="stat-amt">${miss>0?miss+' '+t('ordersMissing'):''}</div></div>
+    </div>`;
+
+  // Filter tabs
+  const FILTERS=[
+    {key:'all',label:t('filterAll'),count:r.length},
+    {key:'carrier_over',label:t('filterHigher'),count:cOver},
+    {key:'boxme_over',label:t('filterLower'),count:bOver},
+    {key:'diff',label:t('filterDiff'),count:cOver+bOver+miss},
+    {key:'ok',label:t('filterMatch'),count:ok},
+  ];
+  document.getElementById('filter-tabs').innerHTML=FILTERS.map(f=>
+    `<button class="filter-tab${f.key==='all'?' active':''}" onclick="setFilter('${f.key}')">${f.label} (${f.count})</button>`
+  ).join('');
+  setFilter('all');
+}
+function setFilter(f){
+  S.filter=f;S.page=1;
+  const FILTER_KEYS=['all','carrier_over','boxme_over','diff','ok'];
+  document.querySelectorAll('.filter-tab').forEach((el,i)=>{
+    el.classList.toggle('active',FILTER_KEYS[i]===f);
+  });
+  const r=S.results;
+  if(f==='all')S.filtered=r;
+  else if(f==='diff')S.filtered=r.filter(x=>x.status!=='ok');
+  else if(f==='carrier_over')S.filtered=r.filter(x=>x.status==='carrier_over');
+  else if(f==='boxme_over')S.filtered=r.filter(x=>x.status==='boxme_over');
+  else S.filtered=r.filter(x=>x.status==='ok');
+  renderTable();
+}
+function renderTable(){
+  const total=S.filtered.length,start=(S.page-1)*S.pageSize;
+  const page=S.filtered.slice(start,start+S.pageSize);
+  const tPages=Math.ceil(total/S.pageSize);
+  document.getElementById('table-info').textContent=`${t('showing')} ${Math.min(start+1,total)}–${Math.min(start+S.pageSize,total)} ${t('of')} ${total.toLocaleString()}`;
+
+  document.getElementById('res-thead').innerHTML=`<tr>
+    <th rowspan="2">${t('thNo')}</th><th rowspan="2">${t('thTracking')}</th><th rowspan="2">${t('thBM')}</th>
+    <th colspan="3" class="g-carrier">${t('thCarrier')}</th>
+    <th colspan="3" class="g-boxme">${t('thBoxme')}</th>
+    <th colspan="2" class="g-diff">${t('thDiff')}</th>
+    <th rowspan="2">${t('thStatus')}</th></tr><tr>
+    <th class="g-carrier">${t('thShip')}</th><th class="g-carrier">${t('thCOD')}</th><th class="g-carrier">${t('thTotal')}</th>
+    <th class="g-boxme">${t('thShip')}</th><th class="g-boxme">${t('thCOD')}</th><th class="g-boxme">${t('thTotal')}</th>
+    <th class="g-diff">${t('thTotal')}</th><th class="g-diff">${t('thShip')}</th></tr>`;
+
+  const fmt=v=>v===0||v===''?'–':(typeof v==='number'?v.toFixed(2):v);
+  const dc=(v,tol=0.01)=>Math.abs(v||0)>tol?' class="cell-diff"':'';
+  document.getElementById('res-tbody').innerHTML=page.map(r=>{
+    const cls=r.status!=='ok'?' class="row-diff"':'';
+    const badge=r.status==='ok'?`<span class="badge badge-ok">${t('badgeOK')}</span>`:
+      r.status==='carrier_over'?`<span class="badge badge-danger">${t('badgeCarrierUp')}</span>`:
+      r.status==='boxme_over'?`<span class="badge badge-warn">${t('badgeBoxmeUp')}</span>`:
+      `<span class="badge badge-miss">${t('badgeMissing')}</span>`;
+    return `<tr${cls}><td>${r.no}</td><td style="font-size:10px">${r.tracking}</td><td style="font-size:10px">${r.bmNumber||'–'}</td>
+    <td>${fmt(r.c_shipping_fee)}</td><td>${fmt(r.c_cod_fee)}</td><td>${fmt(r.c_total)}</td>
+    <td>${fmt(r.b_shipping_fee)}</td><td>${fmt(r.b_cod_fee)}</td><td>${fmt(r.b_total)}</td>
+    <td${dc(r.d_total)}>${fmt(r.d_total)}</td><td${dc(r.d_shipping_fee)}>${fmt(r.d_shipping_fee)}</td>
+    <td>${badge}</td></tr>`;
+  }).join('');
+
+  // Pagination
+  const pag=document.getElementById('pagination');
+  if(tPages<=1){pag.innerHTML='';return}
+  let ps='';const p=S.page;
+  ps+=`<button onclick="goPage(${p-1})"${p===1?' disabled':''}>‹</button>`;
+  const show=new Set([1,tPages,p-1,p,p+1].filter(x=>x>=1&&x<=tPages));
+  let prev=0;
+  [...show].sort((a,b)=>a-b).forEach(pg=>{
+    if(prev&&pg-prev>1)ps+='<span class="page-info">…</span>';
+    ps+=`<button onclick="goPage(${pg})"${pg===p?' class="active"':''}>${pg}</button>`;prev=pg;
+  });
+  ps+=`<button onclick="goPage(${p+1})"${p===tPages?' disabled':''}>›</button>`;
+  pag.innerHTML=ps;
+}
+function goPage(n){const tp=Math.ceil(S.filtered.length/S.pageSize);if(n<1||n>tp)return;S.page=n;renderTable();document.querySelector('.table-wrap').scrollIntoView({behavior:'smooth',block:'nearest'})}
+
+// ════════════════════════════════════════════════════════════
+//  EXPORT
+// ════════════════════════════════════════════════════════════
+function getFilterLabel(){
+  const labels={all:t('filterLabelAll'),carrier_over:t('filterLabelHigher'),boxme_over:t('filterLabelLower'),diff:t('filterLabelDiff'),ok:t('filterLabelMatch')};
+  return labels[S.filter]||'All';
+}
+function downloadExcel(){
+  toast(t('excelPreparing'));
+  setTimeout(()=>{
+    const wb=XLSX.utils.book_new();
+    const exportData=S.filtered; // Export current filtered view
+    const allData=S.results;
+    const filterLabel=getFilterLabel();
+    // Summary
+    const upRows=allData.filter(x=>x.status==='carrier_over');
+    const downRows=allData.filter(x=>x.status==='boxme_over');
+    const totalUp=upRows.reduce((s,x)=>s+Math.abs(x.d_total),0);
+    const totalDown=downRows.reduce((s,x)=>s+Math.abs(x.d_total),0);
+    const netChange=totalUp-totalDown;
+    const sum=[
+      ['Carrier Audit Report — '+filterLabel],
+      ['Generated',new Date().toLocaleString()],
+      ['Carrier',S.carrierName||S.carrier],
+      ['Carrier File',S.carrierFileName],
+      ['Boxme File',S.boxmeFileName],
+      ['Filter Applied',filterLabel],
+      [''],
+      [t('excelSummary'),''],
+      ['Metric','Count','Amount'],
+      ['Total Records',allData.length,''],
+      ['OK',allData.filter(x=>x.status==='ok').length,''],
+      [t('statusHigher'),upRows.length,totalUp],
+      [t('statusLower'),downRows.length,totalDown],
+      [t('statusMissing'),allData.filter(x=>x.status==='missing').length,''],
+      [t('statNetDiff'),'',netChange],
+    ];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),'Summary');
+    // Filtered records
+    const hd=['No.','Tracking','BM Number','C Shipping','C COD','C OW','C Remote','C Insurance','C Return','C Other','C Total','C Weight',
+      'B Shipping','B COD','B OW','B Remote','B Insurance','B Return','B Other','B Total','B Weight',
+      'D Shipping','D COD','D OW','D Remote','D Insurance','D Return','D Other','D Total','D Weight','Status'];
+    const rows=exportData.map((x,i)=>[i+1,x.tracking,x.bmNumber,
+      x.c_shipping_fee,x.c_cod_fee,x.c_overweight_fee,x.c_remote_fee,x.c_insurance_fee,x.c_return_fee,x.c_other_fees,x.c_total,x.c_weight,
+      x.b_shipping_fee,x.b_cod_fee,x.b_overweight_fee,x.b_remote_fee,x.b_insurance_fee,x.b_return_fee,x.b_other_fees,x.b_total,x.b_weight,
+      x.d_shipping_fee,x.d_cod_fee,x.d_overweight_fee,x.d_remote_fee,x.d_insurance_fee,x.d_return_fee,x.d_other_fees,x.d_total,x.d_weight,
+      x.status==='ok'?t('statusOK'):x.status==='carrier_over'?t('statusHigher'):x.status==='boxme_over'?t('statusLower'):t('statusMissing')]);
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hd,...rows]),filterLabel+' Records');
+    const fn=`Carrier_Audit_${S.carrier||'report'}_${filterLabel}_${new Date().toISOString().slice(0,10)}.xlsx`;
+    XLSX.writeFile(wb,fn);toast(t('toastExcelDone')+' ('+exportData.length+' '+t('toastRecords')+')');
+  },100);
+}
+function downloadCSV(){
+  const exportData=S.filtered; // Export current filtered view
+  const filterLabel=getFilterLabel();
+  const hd='No.,Tracking,BM#,C Shipping,C COD,C Total,B Shipping,B COD,B Total,Diff Total,Status';
+  const rows=exportData.map((x,i)=>[i+1,x.tracking,x.bmNumber,x.c_shipping_fee,x.c_cod_fee,x.c_total,x.b_shipping_fee,x.b_cod_fee,x.b_total,x.d_total,
+    x.status==='ok'?t('statusOK'):x.status==='carrier_over'?t('statusHigher'):x.status==='boxme_over'?t('statusLower'):t('statusMissing')].join(',')).join('\n');
+  const blob=new Blob([hd+'\n'+rows],{type:'text/csv'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`Carrier_Audit_${S.carrier||'report'}_${filterLabel}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();toast(t('toastCSVDone')+' ('+exportData.length+' '+t('toastRecords')+')');
+}
+
+// ════════════════════════════════════════════════════════════
+//  UTILITIES
+// ════════════════════════════════════════════════════════════
+function toast(msg,dur=2500){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),dur)}
+function resetApp(){
+  Object.assign(S,{carrier:'',carrierName:'',carrierWb:null,carrierRows:null,carrierCols:[],boxmeWb:null,boxmeRows:null,boxmeCols:[],carrierMap:{},boxmeMap:{},results:[],filtered:[],filter:'all',page:1,carrierFileName:'',boxmeFileName:''});
+  document.getElementById('carrier-select').value='';
+  document.getElementById('custom-carrier-box').classList.add('hidden');
+  document.getElementById('template-badge').classList.add('hidden');
+  ['carrier','boxme'].forEach(w=>{
+    document.getElementById(w+'-badge').classList.add('hidden');
+    document.getElementById(w+'-sheet-sel').classList.add('hidden');
+    document.getElementById(w+'-input').value='';
+  });
+  document.getElementById('proc-log').innerHTML='';
+  document.getElementById('proc-bar').style.width='0%';
+  document.getElementById('btn-step1').disabled=true;
+  document.getElementById('btn-step2').disabled=true;
+  showSection(1);
+}
+</script>
+</body>
+</html>
