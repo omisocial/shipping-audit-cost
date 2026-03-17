@@ -1,0 +1,1261 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Boxme Carrier Audit</title>
+<link rel="stylesheet" href="../../shared/design-system.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="../../shared/auth.js"></script>
+<script src="core.js"></script>
+</head>
+<body style="display:flex">
+<script>MicroAuth.requireAuth();</script>
+
+<aside class="sidebar" id="sidebar"></aside>
+
+<main class="main-content">
+  <header class="main-header" id="main-header"></header>
+  <div class="main-body" id="main-body"></div>
+</main>
+
+<div class="modal-overlay hidden" id="modal-report"></div>
+<div class="toast-container" id="toast-container"></div>
+
+<script>
+/* ============================================================
+   PART 1 — CONSTANTS & I18N
+   ============================================================ */
+const COUNTRY_FLAGS={VN:'🇻🇳',TH:'🇹🇭',PH:'🇵🇭',SG:'🇸🇬',MY:'🇲🇾',ID:'🇮🇩'};
+const COUNTRY_CURRENCY={VN:'₫',TH:'฿',PH:'₱',SG:'S$',MY:'RM',ID:'Rp'};
+
+const LANG={
+vi:{
+  logoSub:'Đối soát chi phí',
+  navDashboard:'Tổng quan',navAudit:'Đối soát mới',navHistory:'Lịch sử',navTemplates:'Cấu hình hãng',
+  welcomeTitle:'Đối soát chi phí vận chuyển',welcomeSub:'Tự động so sánh hóa đơn hãng vs hệ thống Boxme',
+  startAudit:'Bắt đầu đối soát',totalAudits:'Tổng đối soát',totalDiscrepancies:'Tổng lỗi',
+  carrierOverStat:'Hãng thu thừa',missingOrders:'Đơn thiếu',recentAudits:'Lịch sử gần đây',
+  viewAll:'Xem tất cả',noHistory:'Chưa có đối soát nào',noHistorySub:'Upload file hóa đơn và Boxme export để bắt đầu',
+  date:'Ngày',carrier:'Hãng',period:'Kỳ',status:'Trạng thái',hasErrors:'Có lỗi',
+  step1Label:'Chọn hãng',step2Label:'Upload file',step3Label:'Cấu hình cột',step4Label:'Kết quả',
+  step1Title:'Chọn hãng vận chuyển',step1Sub:'Chọn hãng để tự động load cấu hình cột và gợi ý',
+  step2Title:'Upload file dữ liệu',step2Sub:'Upload hóa đơn từ hãng và file export từ Boxme',
+  step3Title:'Xác nhận cấu hình cột',step3Sub:'Kiểm tra và điều chỉnh mapping cột nếu cần',
+  periodHint:'ví dụ: 01/2026',searchCarrier:'Tìm hãng vận chuyển...',
+  customCarrier:'Hãng tùy chỉnh',customCarrierPlaceholder:'Nhập tên hãng...',addCarrier:'Thêm',
+  learned:'Đã ghi nhớ',uploadCarrierFile:'Hóa đơn hãng vận chuyển',uploadBoxmeFile:'File export Boxme',
+  dragDrop:'Kéo thả hoặc click để upload',supportedFormats:'Hỗ trợ .xlsx .xls .csv',
+  clickToReplace:'Click để thay file khác',rows:'dòng',selectSheet:'Chọn sheet:',
+  carrierMapping:'Cột hóa đơn hãng',boxmeMapping:'Cột Boxme export',
+  learnedMapping:'Đã ghi nhớ từ lần trước',notMapped:'-- Bỏ qua --',
+  fieldTracking:'Mã tracking',fieldBmNumber:'Mã BM / Order',fieldShippingFee:'Phí vận chuyển',
+  fieldCodFee:'Tiền thu hộ (COD)',fieldOverweightFee:'Phí vượt cân',fieldRemoteFee:'Phụ phí vùng xa',
+  fieldInsuranceFee:'Phí bảo hiểm',fieldReturnFee:'Phí hoàn hàng',fieldOtherFees:'Phí khác',
+  fieldWeight:'Cân nặng',fieldStatus:'Trạng thái',
+  feeTolerance:'Sai số phí chấp nhận',preview:'Xem trước dữ liệu',previewFirst5:'5 dòng đầu',
+  startReconcile:'Bắt đầu đối soát',back:'Quay lại',next:'Tiếp theo',loading:'Đang xử lý...',
+  totalProcessed:'Tổng xử lý',matched:'Khớp',discrepancies:'Lỗi chênh lệch',missing:'Thiếu dữ liệu',
+  totalDiff:'Tổng chênh lệch',exportReport:'Xuất báo cáo',newAudit:'Đối soát mới',
+  tabAll:'Tất cả',tabOk:'Đúng',tabCarrierOver:'Hãng thu thừa',tabBoxmeOver:'Hãng thu thiếu',tabMissing:'Thiếu',
+  statusOk:'Đúng',statusCarrierOver:'Hãng thu thừa',statusBoxmeOver:'Hãng thu thiếu',statusMissing:'Thiếu dữ liệu',
+  showing500:'Hiển thị 500 / ',
+  exportTitle:'Xuất báo cáo gửi hãng',tabExcel:'📊 File Excel',tabEmail:'✉️ Email',tabChat:'💬 Chat/Zalo',
+  excelWillInclude:'File Excel sẽ bao gồm:',downloadExcel:'Tải file Excel',
+  sheetSummary:'Tổng hợp',sheetDiscrepancies:'Chi tiết lỗi',sheetCarrierOver:'Hãng thu thừa',
+  sheetBoxmeOver:'Hãng thu thiếu',sheetMissing:'Thiếu dữ liệu',sheetAll:'Toàn bộ',
+  language:'Ngôn ngữ',emailSubject:'Tiêu đề email',emailBody:'Nội dung email',
+  chatMessage:'Nội dung tin nhắn',copyText:'Sao chép',copied:'Đã sao chép!',
+  close:'Đóng',downloadStarted:'Đang tải file...',
+  amount:'Số tiền',carrierOver:'Hãng thu thừa',boxmeOver:'Hãng thu thiếu',
+  tracking:'Tracking',bmNumber:'Mã BM',c_total:'Tổng hãng',b_total:'Tổng BMS',d_total:'Chênh lệch',
+  c_shipping_fee:'Cước hãng',c_overweight_fee:'Vượt cân hãng',
+  b_shipping_fee:'Cước BMS',b_overweight_fee:'Vượt cân BMS',
+  d_shipping_fee:'CL cước',d_overweight_fee:'CL vượt cân',d_remote_fee:'CL vùng xa',d_other_fees:'CL khác',
+  c_cod_fee:'COD hãng',c_remote_fee:'Vùng xa hãng',c_insurance_fee:'BH hãng',c_return_fee:'Hoàn hãng',c_other_fees:'Khác hãng',
+  b_cod_fee:'COD BMS',b_remote_fee:'Vùng xa BMS',b_insurance_fee:'BH BMS',b_return_fee:'Hoàn BMS',b_other_fees:'Khác BMS',
+  reportTitle:'BÁO CÁO ĐỐI SOÁT CHI PHÍ VẬN CHUYỂN',generatedAt:'Tạo lúc',
+  auditRecords:'bản ghi',clearHistory:'Xóa lịch sử',confirmClearHistory:'Xóa toàn bộ lịch sử?',
+  navTemplates2:'Danh sách cấu hình hãng',templatesSub:'Quản lý template cột cho từng hãng vận chuyển',
+  exportTemplates:'Xuất JSON',importTemplates:'Nhập JSON',templatesImported:'Đã nhập template!',
+  fullName:'Tên đầy đủ',trackingCol:'Cột tracking',sheetHint:'Sheet hint',notLearned:'Chưa ghi nhớ',
+  errorLoadTemplates:'Không load được templates. Hãy mở bằng web server.',
+  errorReconcile:'Lỗi đối soát',errorParseFile:'Không đọc được file',errorNoTracking:'Chưa chọn cột tracking',
+  mappingSaved:'Đã ghi nhớ cấu hình cột',reconcileSuccess:'Đối soát hoàn tất!',auditSaved:'Đã lưu vào lịch sử',
+  countryLabel:'Quốc gia',exportTabOnly:'Xuất tab này',exportByCustomer:'Xuất theo khách hàng',
+  tabPerCustomer:'👥 Theo KH',noSellerColumn:'Không có cột khách hàng trong dữ liệu',
+  seller:'Khách hàng',sellerCode:'Mã KH',sheetPerCustomer:'Theo KH',downloadTabOnly:'Tải tab hiện tại',
+  filterOptions:'Tùy chọn xuất:',exportAll:'Xuất tất cả',exportDiscrepancy:'Chỉ sai lệch',
+  exportCarrierOver:'Chỉ hãng thu thừa',exportBoxmeOver:'Chỉ hãng thu thiếu',
+},
+en:{
+  logoSub:'Cost Audit Tool',
+  navDashboard:'Dashboard',navAudit:'New Audit',navHistory:'History',navTemplates:'Templates',
+  welcomeTitle:'Carrier Cost Audit',welcomeSub:'Automatically compare carrier invoices vs Boxme system',
+  startAudit:'Start Audit',totalAudits:'Total Audits',totalDiscrepancies:'Total Errors',
+  carrierOverStat:'Carrier Overcharged',missingOrders:'Missing Orders',recentAudits:'Recent Audits',
+  viewAll:'View all',noHistory:'No audits yet',noHistorySub:'Upload carrier invoice and Boxme export to start',
+  date:'Date',carrier:'Carrier',period:'Period',status:'Status',hasErrors:'Has Errors',
+  step1Label:'Select Carrier',step2Label:'Upload Files',step3Label:'Column Mapping',step4Label:'Results',
+  step1Title:'Select Carrier',step1Sub:'Choose a carrier to auto-load column configuration',
+  step2Title:'Upload Data Files',step2Sub:'Upload the carrier invoice and Boxme export file',
+  step3Title:'Confirm Column Mapping',step3Sub:'Review and adjust column mapping if needed',
+  periodHint:'e.g. 01/2026',searchCarrier:'Search carrier...',
+  customCarrier:'Custom Carrier',customCarrierPlaceholder:'Enter carrier name...',addCarrier:'Add',
+  learned:'Learned',uploadCarrierFile:'Carrier Invoice',uploadBoxmeFile:'Boxme Export',
+  dragDrop:'Drag & drop or click to upload',supportedFormats:'Supports .xlsx .xls .csv',
+  clickToReplace:'Click to replace file',rows:'rows',selectSheet:'Select sheet:',
+  carrierMapping:'Carrier Column Mapping',boxmeMapping:'Boxme Column Mapping',
+  learnedMapping:'Learned from previous session',notMapped:'-- Skip --',
+  fieldTracking:'Tracking No.',fieldBmNumber:'BM / Order No.',fieldShippingFee:'Shipping Fee',
+  fieldCodFee:'COD Amount',fieldOverweightFee:'Overweight Fee',fieldRemoteFee:'Remote Area Fee',
+  fieldInsuranceFee:'Insurance Fee',fieldReturnFee:'Return Fee',fieldOtherFees:'Other Fees',
+  fieldWeight:'Weight',fieldStatus:'Status',
+  feeTolerance:'Fee Tolerance',preview:'Data Preview',previewFirst5:'first 5 rows',
+  startReconcile:'Start Reconciliation',back:'Back',next:'Next',loading:'Processing...',
+  totalProcessed:'Total',matched:'Matched',discrepancies:'Discrepancies',missing:'Missing',
+  totalDiff:'Total Difference',exportReport:'Export Report',newAudit:'New Audit',
+  tabAll:'All',tabOk:'OK',tabCarrierOver:'Carrier Over',tabBoxmeOver:'Carrier Under',tabMissing:'Missing',
+  statusOk:'OK',statusCarrierOver:'Carrier Overcharged',statusBoxmeOver:'Carrier Undercharged',statusMissing:'Missing',
+  showing500:'Showing 500 / ',
+  exportTitle:'Export Report for Carrier',tabExcel:'📊 Excel File',tabEmail:'✉️ Email',tabChat:'💬 Chat/Line',
+  excelWillInclude:'Excel file will include:',downloadExcel:'Download Excel',
+  sheetSummary:'Summary',sheetDiscrepancies:'Discrepancies',sheetCarrierOver:'Carrier Overcharged',
+  sheetBoxmeOver:'Carrier Undercharged',sheetMissing:'Missing',sheetAll:'All Results',
+  language:'Language',emailSubject:'Email Subject',emailBody:'Email Body',
+  chatMessage:'Chat Message',copyText:'Copy',copied:'Copied!',
+  close:'Close',downloadStarted:'Downloading...',
+  amount:'Amount',carrierOver:'Carrier Over',boxmeOver:'Carrier Under',
+  tracking:'Tracking',bmNumber:'BM No.',c_total:'Carrier Total',b_total:'Boxme Total',d_total:'Difference',
+  c_shipping_fee:'Carrier Shipping',c_overweight_fee:'Carrier Overweight',
+  b_shipping_fee:'Boxme Shipping',b_overweight_fee:'Boxme Overweight',
+  d_shipping_fee:'Diff Shipping',d_overweight_fee:'Diff Overweight',d_remote_fee:'Diff Remote',d_other_fees:'Diff Other',
+  c_cod_fee:'Carrier COD',c_remote_fee:'Carrier Remote',c_insurance_fee:'Carrier Ins.',c_return_fee:'Carrier Return',c_other_fees:'Carrier Other',
+  b_cod_fee:'Boxme COD',b_remote_fee:'Boxme Remote',b_insurance_fee:'Boxme Ins.',b_return_fee:'Boxme Return',b_other_fees:'Boxme Other',
+  reportTitle:'CARRIER COST RECONCILIATION REPORT',generatedAt:'Generated at',
+  auditRecords:'records',clearHistory:'Clear History',confirmClearHistory:'Clear all history?',
+  navTemplates2:'Carrier Template List',templatesSub:'Manage column templates for each carrier',
+  exportTemplates:'Export JSON',importTemplates:'Import JSON',templatesImported:'Templates imported!',
+  fullName:'Full Name',trackingCol:'Tracking Column',sheetHint:'Sheet Hint',notLearned:'Not learned',
+  errorLoadTemplates:'Cannot load templates. Please open via a web server.',
+  errorReconcile:'Reconcile error',errorParseFile:'Cannot read file',errorNoTracking:'Please select tracking column',
+  mappingSaved:'Column mapping saved',reconcileSuccess:'Reconciliation complete!',auditSaved:'Saved to history',
+  countryLabel:'Country',exportTabOnly:'Export this tab',exportByCustomer:'Export by Customer',
+  tabPerCustomer:'👥 By Customer',noSellerColumn:'No customer column found in data',
+  seller:'Customer',sellerCode:'Customer Code',sheetPerCustomer:'By Customer',downloadTabOnly:'Download tab',
+  filterOptions:'Export options:',exportAll:'Export all',exportDiscrepancy:'Discrepancies only',
+  exportCarrierOver:'Carrier over only',exportBoxmeOver:'Carrier under only',
+},
+th:{
+  logoSub:'ตรวจสอบค่าขนส่ง',
+  navDashboard:'แดชบอร์ด',navAudit:'ตรวจสอบใหม่',navHistory:'ประวัติ',navTemplates:'ตั้งค่า',
+  welcomeTitle:'ตรวจสอบค่าขนส่ง',welcomeSub:'เปรียบเทียบใบแจ้งหนี้กับระบบ Boxme อัตโนมัติ',
+  startAudit:'เริ่มตรวจสอบ',totalAudits:'การตรวจสอบทั้งหมด',totalDiscrepancies:'ข้อผิดพลาดทั้งหมด',
+  carrierOverStat:'สายส่งเก็บเกิน',missingOrders:'ออเดอร์ขาดหาย',recentAudits:'ประวัติล่าสุด',
+  viewAll:'ดูทั้งหมด',noHistory:'ยังไม่มีการตรวจสอบ',noHistorySub:'อัปโหลดไฟล์เพื่อเริ่ม',
+  date:'วันที่',carrier:'สายส่ง',period:'งวด',status:'สถานะ',hasErrors:'มีข้อผิดพลาด',
+  step1Label:'เลือกสายส่ง',step2Label:'อัปโหลดไฟล์',step3Label:'กำหนดคอลัมน์',step4Label:'ผลลัพธ์',
+  step1Title:'เลือกสายส่ง',step1Sub:'เลือกสายส่งเพื่อโหลดการตั้งค่าอัตโนมัติ',
+  step2Title:'อัปโหลดไฟล์',step2Sub:'อัปโหลดใบแจ้งหนี้และไฟล์ส่งออกจาก Boxme',
+  step3Title:'ยืนยันการกำหนดคอลัมน์',step3Sub:'ตรวจสอบและปรับการจับคู่คอลัมน์',
+  periodHint:'เช่น 01/2026',searchCarrier:'ค้นหาสายส่ง...',
+  customCarrier:'สายส่งกำหนดเอง',customCarrierPlaceholder:'ชื่อสายส่ง...',addCarrier:'เพิ่ม',
+  learned:'จดจำแล้ว',uploadCarrierFile:'ใบแจ้งหนี้สายส่ง',uploadBoxmeFile:'ไฟล์ออก Boxme',
+  dragDrop:'ลากวางหรือคลิกเพื่ออัปโหลด',supportedFormats:'รองรับ .xlsx .xls .csv',
+  clickToReplace:'คลิกเพื่อเปลี่ยนไฟล์',rows:'แถว',selectSheet:'เลือกชีท:',
+  carrierMapping:'คอลัมน์ใบแจ้งหนี้',boxmeMapping:'คอลัมน์ Boxme',
+  learnedMapping:'จดจำจากครั้งก่อน',notMapped:'-- ข้าม --',
+  fieldTracking:'เลขพัสดุ',fieldBmNumber:'รหัส BM / Order',fieldShippingFee:'ค่าขนส่ง',
+  fieldCodFee:'ยอด COD',fieldOverweightFee:'ค่าน้ำหนักเกิน',fieldRemoteFee:'ค่าพื้นที่ห่างไกล',
+  fieldInsuranceFee:'ค่าประกัน',fieldReturnFee:'ค่าส่งคืน',fieldOtherFees:'ค่าอื่นๆ',
+  fieldWeight:'น้ำหนัก',fieldStatus:'สถานะ',
+  feeTolerance:'ค่าผิดพลาดที่ยอมรับ',preview:'ตัวอย่างข้อมูล',previewFirst5:'5 แถวแรก',
+  startReconcile:'เริ่มกระทบยอด',back:'ย้อนกลับ',next:'ถัดไป',loading:'กำลังประมวลผล...',
+  totalProcessed:'ทั้งหมด',matched:'ตรงกัน',discrepancies:'ไม่ตรงกัน',missing:'ขาดหาย',
+  totalDiff:'ยอดรวมที่ต่างกัน',exportReport:'ส่งออกรายงาน',newAudit:'ตรวจสอบใหม่',
+  tabAll:'ทั้งหมด',tabOk:'ถูกต้อง',tabCarrierOver:'สายส่งเก็บเกิน',tabBoxmeOver:'สายส่งเก็บขาด',tabMissing:'ขาดหาย',
+  statusOk:'ถูกต้อง',statusCarrierOver:'สายส่งเก็บเกิน',statusBoxmeOver:'สายส่งเก็บขาด',statusMissing:'ไม่พบข้อมูล',
+  showing500:'แสดง 500 / ',
+  exportTitle:'ส่งออกรายงานไปสายส่ง',tabExcel:'📊 ไฟล์ Excel',tabEmail:'✉️ อีเมล',tabChat:'💬 แชท/Line',
+  excelWillInclude:'ไฟล์ Excel จะมี:',downloadExcel:'ดาวน์โหลด Excel',
+  sheetSummary:'สรุป',sheetDiscrepancies:'รายละเอียดข้อผิดพลาด',sheetCarrierOver:'สายส่งเก็บเกิน',
+  sheetBoxmeOver:'สายส่งเก็บขาด',sheetMissing:'ขาดหาย',sheetAll:'ทั้งหมด',
+  language:'ภาษา',emailSubject:'หัวข้ออีเมล',emailBody:'เนื้อหาอีเมล',
+  chatMessage:'ข้อความแชท',copyText:'คัดลอก',copied:'คัดลอกแล้ว!',
+  close:'ปิด',downloadStarted:'กำลังดาวน์โหลด...',
+  amount:'ยอดเงิน',carrierOver:'สายส่งเก็บเกิน',boxmeOver:'สายส่งเก็บขาด',
+  tracking:'Tracking',bmNumber:'รหัส BM',c_total:'รวมสายส่ง',b_total:'รวม BMS',d_total:'ส่วนต่าง',
+  c_shipping_fee:'ค่าส่งสายส่ง',c_overweight_fee:'น้ำหนักเกินสายส่ง',
+  b_shipping_fee:'ค่าส่ง BMS',b_overweight_fee:'น้ำหนักเกิน BMS',
+  d_shipping_fee:'ต่างค่าส่ง',d_overweight_fee:'ต่างน้ำหนัก',d_remote_fee:'ต่างห่างไกล',d_other_fees:'ต่างอื่นๆ',
+  c_cod_fee:'COD สายส่ง',c_remote_fee:'ห่างไกลสายส่ง',c_insurance_fee:'ประกันสายส่ง',c_return_fee:'คืนสายส่ง',c_other_fees:'อื่นๆสายส่ง',
+  b_cod_fee:'COD BMS',b_remote_fee:'ห่างไกล BMS',b_insurance_fee:'ประกัน BMS',b_return_fee:'คืน BMS',b_other_fees:'อื่นๆ BMS',
+  reportTitle:'รายงานกระทบยอดค่าขนส่ง',generatedAt:'สร้างเมื่อ',
+  auditRecords:'รายการ',clearHistory:'ล้างประวัติ',confirmClearHistory:'ล้างประวัติทั้งหมด?',
+  navTemplates2:'รายการตั้งค่าสายส่ง',templatesSub:'จัดการเทมเพลตคอลัมน์สำหรับแต่ละสายส่ง',
+  exportTemplates:'ส่งออก JSON',importTemplates:'นำเข้า JSON',templatesImported:'นำเข้าเทมเพลตแล้ว!',
+  fullName:'ชื่อเต็ม',trackingCol:'คอลัมน์ tracking',sheetHint:'Sheet hint',notLearned:'ยังไม่ได้จดจำ',
+  errorLoadTemplates:'ไม่สามารถโหลด templates ได้ กรุณาเปิดผ่าน web server',
+  errorReconcile:'เกิดข้อผิดพลาด',errorParseFile:'อ่านไฟล์ไม่ได้',errorNoTracking:'กรุณาเลือกคอลัมน์ tracking',
+  mappingSaved:'บันทึกการกำหนดคอลัมน์แล้ว',reconcileSuccess:'กระทบยอดเสร็จสิ้น!',auditSaved:'บันทึกลงประวัติแล้ว',
+  countryLabel:'ประเทศ',exportTabOnly:'ส่งออกแท็บนี้',exportByCustomer:'ส่งออกตามลูกค้า',
+  tabPerCustomer:'👥 ตามลูกค้า',noSellerColumn:'ไม่พบคอลัมน์ลูกค้าในข้อมูล',
+  seller:'ลูกค้า',sellerCode:'รหัสลูกค้า',sheetPerCustomer:'ตามลูกค้า',downloadTabOnly:'ดาวน์โหลดแท็บ',
+  filterOptions:'ตัวเลือกส่งออก:',exportAll:'ส่งออกทั้งหมด',exportDiscrepancy:'เฉพาะที่ไม่ตรงกัน',
+  exportCarrierOver:'เฉพาะสายส่งเก็บเกิน',exportBoxmeOver:'เฉพาะสายส่งเก็บขาด',
+}
+};
+
+/* ============================================================
+   PART 2 — MESSAGE TEMPLATES (Email + Chat, EN/VI/TH)
+   ============================================================ */
+const MSG={
+email:{
+vi:{
+subject:'Báo cáo chênh lệch chi phí vận chuyển – {carrier} ({period})',
+body:`Kính gửi đội ngũ {carrier},
+
+Chúng tôi đã hoàn thành đối soát chi phí vận chuyển kỳ {period} và phát hiện chênh lệch giữa hóa đơn của quý vị và dữ liệu hệ thống Boxme.
+
+📊 TỔNG HỢP KẾT QUẢ:
+• Tổng đơn đối soát:     {totalRows}
+• Khớp (không lỗi):      {matched}
+• Phát hiện lỗi:          {discrepancyCount}
+  - Hãng thu thừa:        {carrierOverCount} đơn | {carrierOverAmount}
+  - Hãng thu thiếu:       {boxmeOverCount} đơn | {boxmeOverAmount}
+  - Thiếu trong hóa đơn: {missingCount} đơn
+
+Vui lòng xem file Excel đính kèm để biết chi tiết từng đơn hàng chênh lệch.
+
+Kính nhờ quý vị xác nhận hoặc giải thích trong vòng 5 ngày làm việc.
+
+Trân trọng,
+Đội vận hành Boxme`
+},
+en:{
+subject:'Shipping Cost Discrepancy Report – {carrier} ({period})',
+body:`Dear {carrier} Team,
+
+We have completed our cost reconciliation for {period} and identified discrepancies between your invoice and our Boxme system records.
+
+📊 SUMMARY:
+• Total shipments audited:      {totalRows}
+• Matched (no discrepancy):     {matched}
+• Discrepancies found:          {discrepancyCount}
+  - Carrier overcharged:        {carrierOverCount} orders | {carrierOverAmount}
+  - Carrier undercharged:       {boxmeOverCount} orders | {boxmeOverAmount}
+  - Missing from invoice:       {missingCount} orders
+
+Please review the attached Excel file for the detailed breakdown of each discrepancy.
+
+Kindly respond with your confirmation or clarification within 5 business days.
+
+Best regards,
+Boxme Operations Team`
+},
+th:{
+subject:'รายงานความคลาดเคลื่อนค่าขนส่ง – {carrier} ({period})',
+body:`เรียน ทีม {carrier},
+
+เราได้ทำการกระทบยอดค่าขนส่งงวด {period} เสร็จสิ้นแล้ว และพบความคลาดเคลื่อนระหว่างใบแจ้งหนี้ของท่านกับระบบ Boxme
+
+📊 สรุปผลการตรวจสอบ:
+• ออเดอร์ที่ตรวจสอบทั้งหมด:    {totalRows}
+• ตรงกัน (ไม่มีความคลาดเคลื่อน): {matched}
+• พบความคลาดเคลื่อน:              {discrepancyCount}
+  - สายส่งเรียกเก็บเกิน:           {carrierOverCount} รายการ | {carrierOverAmount}
+  - สายส่งเรียกเก็บขาด:            {boxmeOverCount} รายการ | {boxmeOverAmount}
+  - ไม่พบในใบแจ้งหนี้:              {missingCount} รายการ
+
+กรุณาตรวจสอบไฟล์ Excel ที่แนบมาเพื่อดูรายละเอียดแต่ละรายการ
+
+กรุณาตอบกลับพร้อมการยืนยันหรือชี้แจงภายใน 5 วันทำการ
+
+ด้วยความนับถือ,
+ทีมปฏิบัติการ Boxme`
+}
+},
+chat:{
+vi:`Chào team {carrier} 👋
+
+Đối soát kỳ {period} xong rồi ạ. Phát hiện {discrepancyCount} lỗi:
+• Hãng thu thừa: {carrierOverCount} đơn ({carrierOverAmount})
+• Hãng thu thiếu: {boxmeOverCount} đơn ({boxmeOverAmount})
+• Thiếu tracking: {missingCount} đơn
+
+Vui lòng check file đính kèm nhé. Cảm ơn! 🙏`,
+en:`Hi {carrier} team 👋
+
+Reconciliation for {period} is done. Found {discrepancyCount} discrepancies:
+• Overcharged: {carrierOverCount} orders ({carrierOverAmount})
+• Undercharged: {boxmeOverCount} orders ({boxmeOverAmount})
+• Missing: {missingCount} orders
+
+Please check the attached file. Thank you! 🙏`,
+th:`สวัสดี ทีม {carrier} 👋
+
+กระทบยอดงวด {period} เสร็จแล้วครับ พบ {discrepancyCount} รายการ:
+• สายส่งเก็บเกิน: {carrierOverCount} รายการ ({carrierOverAmount})
+• สายส่งเก็บขาด: {boxmeOverCount} รายการ ({boxmeOverAmount})
+• ขาดหาย: {missingCount} รายการ
+
+กรุณาตรวจสอบไฟล์ที่แนบครับ ขอบคุณ! 🙏`
+}
+};
+
+/* ============================================================
+   PART 3 — APP STATE
+   ============================================================ */
+const S={
+  lang:localStorage.getItem('ba_lang')||'vi',
+  country:localStorage.getItem('ba_country')||'TH',
+  view:'dashboard',
+  templates:{},
+  // Audit state
+  step:1,carrier:null,carrierKey:null,period:'',
+  carrierFile:null,boxmeFile:null,
+  carrierWb:null,boxmeWb:null,
+  carrierSheet:'',boxmeSheet:'',
+  carrierData:[],boxmeData:[],
+  carrierHeaders:[],boxmeHeaders:[],
+  carrierMap:{},boxmeMap:{},
+  learnedCarrier:false,learnedBoxme:false,
+  tolFee:0.01,
+  results:null,resultsTab:'all',
+  currency:COUNTRY_CURRENCY[localStorage.getItem('ba_country')||'TH']||'฿',
+  sellerField:null,
+  // Report modal
+  reportTab:'excel',reportLang:'vi',
+  // History
+  history:[],
+};
+
+/* ============================================================
+   PART 4 — UTILITIES
+   ============================================================ */
+function t(k){return(LANG[S.lang]||LANG.vi)[k]||k}
+function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;')}
+function fmt(n){return(parseFloat(n)||0).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})}
+function fmtAmt(n){return S.currency+fmt(n)}
+function fmtDate(d){try{return new Date(d).toLocaleDateString('vi-VN',{day:'2-digit',month:'2-digit',year:'numeric'})}catch{return String(d)}}
+function currentPeriod(){const d=new Date();return String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()}
+function fillTpl(tpl,data){return tpl.replace(/\{(\w+)\}/g,(_,k)=>data[k]!=null?data[k]:'{'+k+'}')}
+function calcStats(results){
+  let dc=0,co=0,bo=0,mc=0,coAmt=0,boAmt=0,td=0;
+  (results||[]).forEach(r=>{
+    if(r.status==='carrier_over'){dc++;co++;coAmt+=r.d_total;}
+    else if(r.status==='boxme_over'){dc++;bo++;boAmt+=Math.abs(r.d_total);}
+    else if(r.status==='missing'){mc++;}
+    td+=r.d_total||0;
+  });
+  return{discrepancyCount:dc,carrierOverCount:co,boxmeOverCount:bo,missingCount:mc,carrierOverAmount:coAmt,boxmeOverAmount:boAmt,totalDiff:td};
+}
+function guessCountry(key,tpl){
+  const k=key.toUpperCase(),nm=((tpl&&tpl.name)||'').toUpperCase();
+  if(k.endsWith('_VN')||nm.includes('(VN)')||['GHN','GHTK','VTP'].some(x=>k.startsWith(x)))return'VN';
+  if(k.endsWith('_PH')||nm.includes('(PH)')||k.includes('GRAB'))return'PH';
+  return'TH';
+}
+function getTemplateData(){
+  const{results}=S.results||{results:[]};
+  const stats=calcStats(results);
+  return{
+    carrier:S.carrier?(S.carrier.name||S.carrierKey):'',
+    period:S.period||'',
+    totalRows:results.length,
+    matched:S.results?S.results.matched:0,
+    discrepancyCount:stats.discrepancyCount,
+    carrierOverCount:stats.carrierOverCount,
+    boxmeOverCount:stats.boxmeOverCount,
+    missingCount:stats.missingCount,
+    carrierOverAmount:fmtAmt(stats.carrierOverAmount),
+    boxmeOverAmount:fmtAmt(stats.boxmeOverAmount),
+    totalDiff:fmtAmt(stats.totalDiff),
+  };
+}
+
+/* ============================================================
+   PART 5 — LOCALSTORAGE HELPERS
+   ============================================================ */
+function loadHistory(){try{S.history=JSON.parse(localStorage.getItem('ba_history')||'[]')}catch{S.history=[]}}
+function saveHistory(e){S.history.unshift(e);if(S.history.length>100)S.history=S.history.slice(0,100);localStorage.setItem('ba_history',JSON.stringify(S.history))}
+function loadLearnedMap(key){try{return JSON.parse(localStorage.getItem('ba_map_'+key)||'null')}catch{return null}}
+function saveLearnedMap(key,cm,bm){localStorage.setItem('ba_map_'+key,JSON.stringify({carrier:cm,boxme:bm,ts:Date.now()}))}
+
+/* ============================================================
+   PART 6 — TOAST & MODAL HELPERS
+   ============================================================ */
+function toast(msg,type=''){
+  const el=document.createElement('div');
+  el.className='toast'+(type?' '+type:'');
+  el.textContent=msg;
+  document.getElementById('toast-container').appendChild(el);
+  setTimeout(()=>{el.style.animation='fadeOut .3s forwards';setTimeout(()=>el.remove(),300)},3000);
+}
+function navigate(view){S.view=view;render()}
+function setLang(l){S.lang=l;S.reportLang=l;localStorage.setItem('ba_lang',l);render()}
+function setCountry(c){S.country=c;S.currency=COUNTRY_CURRENCY[c]||'฿';localStorage.setItem('ba_country',c);render()}
+
+/* ============================================================
+   PART 7 — FILE PARSING
+   ============================================================ */
+async function loadTemplates(){
+  try{
+    const r=await fetch('templates.json');
+    if(!r.ok)throw new Error('HTTP '+r.status);
+    const j=await r.json();delete j._meta;S.templates=j;
+  }catch(e){
+    toast(t('errorLoadTemplates'),'error');
+    console.error(e);
+  }
+}
+function parseWb(file){
+  return new Promise((res,rej)=>{
+    const fr=new FileReader();
+    fr.onload=e=>{try{res(XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:true,raw:false}))}catch(err){rej(err)}};
+    fr.onerror=rej;
+    fr.readAsArrayBuffer(file);
+  });
+}
+function sheetData(wb,name,headerRow){
+  const ws=wb.Sheets[name];if(!ws)return{headers:[],data:[]};
+  const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
+  const hi=(headerRow||1)-1;
+  const headers=(raw[hi]||[]).map(h=>String(h||'').trim()).filter(h=>h);
+  const data=[];
+  for(let i=hi+1;i<raw.length;i++){
+    const row=raw[i];
+    if(!row.some(v=>v!==''))continue;
+    const obj={};headers.forEach((h,j)=>{obj[h]=row[j]!==undefined?row[j]:''});
+    data.push(obj);
+  }
+  return{headers,data};
+}
+function autoSheet(wb,hints){
+  const sheets=wb.SheetNames;
+  if(!hints||!hints.length)return sheets[0];
+  // Tier 1: exact match
+  for(const h of hints){const f=sheets.find(s=>s.toLowerCase()===h.toLowerCase());if(f)return f;}
+  // Tier 2: startsWith
+  for(const h of hints){const f=sheets.find(s=>s.toLowerCase().startsWith(h.toLowerCase()));if(f)return f;}
+  // Tier 3: includes (substring)
+  for(const h of hints){const f=sheets.find(s=>s.toLowerCase().includes(h.toLowerCase()));if(f)return f;}
+  return sheets[0];
+}
+async function loadFile(file,type){
+  try{
+    const wb=await parseWb(file);
+    const c=S.carrier||{};
+    if(type==='carrier'){
+      S.carrierFile=file;S.carrierWb=wb;
+      S.carrierSheet=autoSheet(wb,c.carrierSheetHint);
+      const{headers,data}=sheetData(wb,S.carrierSheet,c.headerRowHint||1);
+      S.carrierHeaders=headers;S.carrierData=data;
+    }else{
+      S.boxmeFile=file;S.boxmeWb=wb;
+      S.boxmeSheet=autoSheet(wb,c.boxmeSheetHint||['Order']);
+      const{headers,data}=sheetData(wb,S.boxmeSheet,1);
+      S.boxmeHeaders=headers;S.boxmeData=data;
+    }
+    render();
+  }catch(e){toast(t('errorParseFile')+': '+e.message,'error');}
+}
+function handleDrop(ev,type){
+  ev.preventDefault();
+  document.getElementById(type+'-zone').classList.remove('drag-over');
+  const f=ev.dataTransfer.files[0];if(f)loadFile(f,type);
+}
+function handleFile(ev,type){const f=ev.target.files[0];if(f)loadFile(f,type);}
+function onSheetChange(type,sheet){
+  if(type==='carrier'){
+    S.carrierSheet=sheet;
+    const{headers,data}=sheetData(S.carrierWb,sheet,(S.carrier&&S.carrier.headerRowHint)||1);
+    S.carrierHeaders=headers;S.carrierData=data;
+  }else{
+    S.boxmeSheet=sheet;
+    const{headers,data}=sheetData(S.boxmeWb,sheet,1);
+    S.boxmeHeaders=headers;S.boxmeData=data;
+  }
+  render();
+}
+
+/* ============================================================
+   PART 8 — MAPPING & RECONCILE
+   ============================================================ */
+const GLOBAL_HINTS={
+  tracking:['tracking','tracking number','waybill','consignment','awb','เลขพัสดุ','mã vận đơn'],
+  bm_number:['order','order id','รหัสออเดอร์','mã đơn','reference'],
+  shipping_fee:['shipping','freight','ค่าขนส่ง','phí vận chuyển','cước'],
+  cod_fee:['cod','cash on delivery','เก็บเงินปลายทาง','tiền thu hộ','money collect'],
+  overweight_fee:['overweight','excess weight','น้ำหนักเกิน','vượt cân'],
+  remote_fee:['remote','area surcharge','ห่างไกล','vùng xa'],
+  insurance_fee:['insurance','ประกัน','bảo hiểm'],
+  return_fee:['return','คืน','hoàn'],
+  other_fees:['other','misc','phí khác','ค่าอื่น'],
+  weight:['weight','น้ำหนัก','trọng lượng','kg'],
+  status:['status','สถานะ','trạng thái'],
+};
+function readMappingFromUI(){
+  const fields=['tracking','bm_number','shipping_fee','cod_fee','overweight_fee','remote_fee','insurance_fee','return_fee','other_fees','weight','status'];
+  fields.forEach(f=>{
+    const ce=document.getElementById('cm_'+f),be=document.getElementById('bm_'+f);
+    if(ce)S.carrierMap[f]=ce.value||undefined;
+    if(be)S.boxmeMap[f]=be.value||undefined;
+  });
+}
+function goToStep3(){
+  if(!S.carrierFile||!S.boxmeFile)return;
+  const c=S.carrier||{};
+  const cHints=AuditCore.mergeHints(GLOBAL_HINTS,c.carrierHints||{});
+  const bHints=AuditCore.mergeHints(GLOBAL_HINTS,c.boxmeHints||{});
+  const learned=loadLearnedMap(S.carrierKey);
+  if(learned){
+    S.carrierMap={...AuditCore.smartDetect(S.carrierHeaders,cHints,c.carrierMapping||{}),...learned.carrier};
+    S.boxmeMap={...AuditCore.smartDetect(S.boxmeHeaders,bHints,c.boxmeMapping||{}),...learned.boxme};
+    S.learnedCarrier=true;S.learnedBoxme=true;
+  }else{
+    S.carrierMap=AuditCore.smartDetect(S.carrierHeaders,cHints,c.carrierMapping||{});
+    S.boxmeMap=AuditCore.smartDetect(S.boxmeHeaders,bHints,c.boxmeMapping||{});
+    S.learnedCarrier=false;S.learnedBoxme=false;
+  }
+  S.step=3;render();
+}
+function doReconcile(){
+  readMappingFromUI();
+  if(!S.carrierMap.tracking){toast(t('errorNoTracking'),'error');return;}
+  const btn=document.getElementById('reconcile-btn');
+  if(btn){btn.disabled=true;btn.innerHTML=t('loading');}
+  setTimeout(()=>{
+    try{
+      S.results=AuditCore.reconcile(S.carrierData,S.boxmeData,S.carrierMap,S.boxmeMap,parseFloat(S.tolFee)||0.01);
+      // Detect seller/customer column from BMS headers
+      const sellerHints=['seller','customer','shop','merchant','seller_id','seller_code','mã kh','khách hàng','ลูกค้า','buyer','client','shipper'];
+      S.sellerField=S.boxmeHeaders.find(h=>{const hl=h.toLowerCase();return sellerHints.some(hint=>hl.includes(hint));})||null;
+      // Enrich result rows with seller info
+      if(S.sellerField){
+        const bmIdx={};
+        S.boxmeData.forEach(row=>{
+          const trk=String(row[S.boxmeMap.tracking]||row[S.boxmeMap.bm_number]||'').trim();
+          if(trk)bmIdx[trk]=row;
+        });
+        S.results.results.forEach(r=>{
+          const bmRow=bmIdx[r.tracking]||bmIdx[r.bm_number]||null;
+          r.seller=bmRow?String(bmRow[S.sellerField]||'').trim():'';
+        });
+      }
+      saveLearnedMap(S.carrierKey,S.carrierMap,S.boxmeMap);
+      toast(t('mappingSaved'),'success');
+      const stats=calcStats(S.results.results);
+      saveHistory({id:Date.now(),date:new Date().toISOString(),carrierKey:S.carrierKey,
+        carrierName:S.carrier?(S.carrier.name||S.carrierKey):S.carrierKey,
+        period:S.period,totalRows:S.results.results.length,matched:S.results.matched,
+        missing:S.results.missing,...stats,currency:S.currency});
+      S.step=4;S.resultsTab='all';
+      setTimeout(()=>toast(t('reconcileSuccess'),'success'),100);
+    }catch(e){toast(t('errorReconcile')+': '+e.message,'error');}
+    render();
+  },80);
+}
+
+/* ============================================================
+   PART 9 — RENDER ENGINE
+   ============================================================ */
+function render(){
+  renderSidebar();renderHeader();
+  const body=document.getElementById('main-body');
+  if(S.view==='dashboard')body.innerHTML=renderDashboard();
+  else if(S.view==='audit')body.innerHTML=renderAudit();
+  else if(S.view==='history')body.innerHTML=renderHistoryView();
+  else if(S.view==='templates')body.innerHTML=renderTemplatesView();
+}
+function renderSidebar(){
+  const nav=[
+    {v:'dashboard',icon:icoHome(),lbl:t('navDashboard')},
+    {v:'audit',icon:icoAudit(),lbl:t('navAudit')},
+    {v:'history',icon:icoHistory(),lbl:t('navHistory')},
+    {v:'templates',icon:icoSettings(),lbl:t('navTemplates')},
+  ].map(n=>`<button class="nav-item ${S.view===n.v?'active':''}" onclick="navigate('${n.v}')">${n.icon}<span>${esc(n.lbl)}</span></button>`).join('');
+  const langSel=`<select class="sb-select" onchange="setLang(this.value)">${[['vi','🇻🇳 VI'],['en','🌐 EN'],['th','🇹🇭 TH']].map(([v,l])=>`<option value="${v}"${S.lang===v?' selected':''}>${l}</option>`).join('')}</select>`;
+  const countrySel=`<select class="sb-select" onchange="setCountry(this.value)">${Object.entries(COUNTRY_FLAGS).map(([c,f])=>`<option value="${c}"${S.country===c?' selected':''}>${f} ${c} (${COUNTRY_CURRENCY[c]||''})</option>`).join('')}</select>`;
+  const icoPortal=()=>'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>';
+  const icoLogout2=()=>'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>';
+  document.getElementById('sidebar').innerHTML=`
+    <div class="sb-logo">
+      <div class="sb-logo-icon">BX</div>
+      <div><div class="sb-logo-name">Micro Tools</div><div class="sb-logo-sub">${esc(t('logoSub'))}</div></div>
+    </div>
+    <nav class="sb-nav">
+      <a class="nav-item" href="../../portal.html">${icoPortal()}<span>Portal</span></a>
+      <div style="height:1px;background:var(--border);margin:6px 8px"></div>
+      ${nav}
+    </nav>
+    <div class="sb-settings">
+      <div class="sb-setting-row"><span class="sb-setting-lbl">${esc(t('language'))}</span>${langSel}</div>
+      <div class="sb-setting-row"><span class="sb-setting-lbl">${esc(t('countryLabel'))}</span>${countrySel}</div>
+    </div>
+    <div class="sb-footer">
+      <button class="nav-item" onclick="MicroAuth.logout();window.location.replace('../../index.html')">${icoLogout2()}<span>Logout</span></button>
+      <div class="sb-version">v3.1 © Boxme.asia</div>
+    </div>`;
+}
+function renderHeader(){
+  const titles={dashboard:t('navDashboard'),audit:t('navAudit'),history:t('navHistory'),templates:t('navTemplates')};
+  let actions='';
+  if(S.view==='audit'&&S.step===4&&S.results)
+    actions=`<button class="btn btn-primary btn-sm" onclick="showReportModal()">${icoDownload()} ${esc(t('exportReport'))}</button>`;
+  if(S.view==='dashboard')
+    actions=`<button class="btn btn-primary btn-sm" onclick="startNewAudit()">${icoPlus()} ${esc(t('startAudit'))}</button>`;
+  const sub=S.view==='audit'&&S.step>1&&S.carrier?`<div class="main-sub">${esc(S.carrier.name||S.carrierKey)} · ${esc(S.period)}</div>`:'';
+  document.getElementById('main-header').innerHTML=`
+    <div><div class="main-title">${esc(titles[S.view]||'')}</div>${sub}</div>
+    <div style="display:flex;gap:8px;align-items:center;">${actions}</div>`;
+}
+
+/* ── Dashboard ── */
+function renderDashboard(){
+  const h=S.history,ta=h.length,
+    te=h.reduce((s,x)=>s+(x.discrepancyCount||0),0),
+    tc=h.reduce((s,x)=>s+(x.carrierOverCount||0),0),
+    tm=h.reduce((s,x)=>s+(x.missing||0),0);
+  const rows=h.slice(0,10).map(x=>`<tr>
+    <td>${fmtDate(x.date)}</td>
+    <td><span class="font-semibold">${esc(x.carrierName||x.carrierKey)}</span></td>
+    <td>${esc(x.period||'-')}</td>
+    <td class="col-num">${x.totalRows}</td>
+    <td class="col-num">${x.discrepancyCount>0?`<span class="badge badge-danger">${x.discrepancyCount}</span>`:`<span class="badge badge-success">0</span>`}</td>
+    <td class="col-num" style="font-weight:700">${(x.currency||'')}${fmt(x.totalDiff)}</td>
+    <td>${x.discrepancyCount===0?`<span class="badge badge-success">${t('statusOk')}</span>`:`<span class="badge badge-danger">${t('hasErrors')}</span>`}</td>
+  </tr>`).join('');
+  return`
+  <div class="card mb-4"><div class="card-content" style="padding:22px">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+      <div>
+        <div style="font-size:20px;font-weight:800;margin-bottom:3px">${esc(t('welcomeTitle'))}</div>
+        <div class="text-muted">${esc(t('welcomeSub'))}</div>
+      </div>
+      <button class="btn btn-primary btn-lg" onclick="startNewAudit()">${icoPlus()} ${esc(t('startAudit'))}</button>
+    </div>
+  </div></div>
+  <div class="grid-4 mb-4">
+    <div class="stat-card"><div class="stat-icon" style="background:var(--primary-light);color:var(--primary)">${icoAudit()}</div><div class="stat-label">${esc(t('totalAudits'))}</div><div class="stat-value">${ta}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:var(--danger-light);color:var(--danger)">${icoAlert()}</div><div class="stat-label">${esc(t('totalDiscrepancies'))}</div><div class="stat-value text-danger">${te}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:var(--warn-light);color:var(--warn)">${icoTrendUp()}</div><div class="stat-label">${esc(t('carrierOverStat'))}</div><div class="stat-value text-warn">${tc}</div></div>
+    <div class="stat-card"><div class="stat-icon" style="background:var(--muted);color:var(--muted-fg)">${icoMissing()}</div><div class="stat-label">${esc(t('missingOrders'))}</div><div class="stat-value">${tm}</div></div>
+  </div>
+  <div class="card"><div class="card-header" style="padding:14px 18px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div class="card-title">${esc(t('recentAudits'))}</div>
+      ${h.length>0?`<button class="btn btn-ghost btn-sm" onclick="navigate('history')">${esc(t('viewAll'))}</button>`:''}
+    </div>
+  </div>
+  <div class="card-content" style="padding:0">
+  ${h.length===0?`<div class="empty-state">
+    <div class="empty-icon">${icoAudit()}</div>
+    <div class="empty-title">${esc(t('noHistory'))}</div>
+    <div class="empty-sub">${esc(t('noHistorySub'))}</div>
+    <button class="btn btn-primary" onclick="startNewAudit()">${icoPlus()} ${esc(t('startAudit'))}</button>
+  </div>`:`<div class="table-wrap" style="border:none;border-radius:0">
+    <table class="table"><thead><tr>
+      <th>${esc(t('date'))}</th><th>${esc(t('carrier'))}</th><th>${esc(t('period'))}</th>
+      <th class="col-num">${esc(t('totalProcessed'))}</th><th class="col-num">${esc(t('discrepancies'))}</th>
+      <th class="col-num">${esc(t('totalDiff'))}</th><th>${esc(t('status'))}</th>
+    </tr></thead><tbody>${rows}</tbody></table>
+  </div>`}
+  </div></div>`;
+}
+
+/* ── Audit Workflow ── */
+function renderAudit(){
+  const steps=[t('step1Label'),t('step2Label'),t('step3Label'),t('step4Label')];
+  const nav=steps.map((lbl,i)=>{
+    const n=i+1,cls=n===S.step?'active':n<S.step?'done':'',lc=n<S.step?'done':'';
+    return`<div class="step-item"><div class="step-circle ${cls}">${n<S.step?'✓':n}</div><span class="step-lbl ${cls}">${esc(lbl)}</span></div>${n<steps.length?`<div class="step-line ${lc}"></div>`:''}`;
+  }).join('');
+  let content='';
+  if(S.step===1)content=renderStep1();
+  else if(S.step===2)content=renderStep2();
+  else if(S.step===3)content=renderStep3();
+  else if(S.step===4)content=renderStep4();
+  return`<div class="step-nav">${nav}</div>${content}`;
+}
+
+/* ── Step 1 ── */
+function renderStep1(){
+  const keys=Object.keys(S.templates);
+  const groups={};
+  keys.forEach(k=>{const c=guessCountry(k,S.templates[k]);if(!groups[c])groups[c]=[];groups[c].push(k);});
+  const groupsHtml=Object.entries(groups).map(([country,ks])=>`
+    <div class="mb-4">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted-fg);letter-spacing:.05em;margin-bottom:8px">
+        ${COUNTRY_FLAGS[country]||'🌐'} ${country}
+      </div>
+      <div class="carrier-grid" id="grp-${country}">
+        ${ks.map(k=>{
+          const tpl=S.templates[k],nm=tpl.name||k,learned=loadLearnedMap(k)!==null;
+          return`<div class="carrier-card ${S.carrierKey===k?'selected':''}" onclick="pickCarrier('${esc(k)}')">
+            <div class="carrier-flag">${COUNTRY_FLAGS[guessCountry(k,tpl)]||'🌐'}</div>
+            <div class="carrier-name">${esc(k)}</div>
+            <div class="carrier-fullname">${esc(nm.length>28?nm.slice(0,28)+'…':nm)}</div>
+            ${learned?`<div class="learned-chip mt-2">✓ ${esc(t('learned'))}</div>`:''}
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`).join('');
+  return`<div class="card">
+    <div class="card-header"><div class="card-title">${esc(t('step1Title'))}</div><div class="card-desc">${esc(t('step1Sub'))}</div></div>
+    <div class="card-content">
+      <div class="grid-2 mb-4" style="max-width:440px">
+        <div class="form-group" style="margin:0">
+          <label class="label">${esc(t('period'))} <span class="text-muted text-xs">(${esc(t('periodHint'))})</span></label>
+          <input class="input" id="period-input" value="${esc(S.period||currentPeriod())}" placeholder="01/2026" oninput="S.period=this.value">
+        </div>
+      </div>
+      <div class="form-group"><input class="input" type="text" placeholder="${esc(t('searchCarrier'))}" oninput="filterCarriers(this.value)"></div>
+      <div id="carrier-grid-wrap">${groupsHtml}</div>
+      <div class="sep"></div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--muted-fg);margin-bottom:8px">⚙️ ${esc(t('customCarrier'))}</div>
+      <div style="display:flex;gap:8px;max-width:400px">
+        <input class="input" id="custom-name" placeholder="${esc(t('customCarrierPlaceholder'))}">
+        <button class="btn btn-outline btn-sm" onclick="addCustom()" style="flex-shrink:0">${esc(t('addCarrier'))}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── Step 2 ── */
+function renderStep2(){
+  function zone(type,file,sheets,sheet){
+    const lbl=type==='carrier'?t('uploadCarrierFile'):t('uploadBoxmeFile');
+    const data=type==='carrier'?S.carrierData:S.boxmeData;
+    return`<div>
+      <div class="label mb-3">${esc(lbl)} <span style="color:var(--danger)">*</span></div>
+      <div class="upload-zone ${file?'has-file':''}" id="${type}-zone"
+        onclick="document.getElementById('${type}-fi').click()"
+        ondragover="event.preventDefault();this.classList.add('drag-over')"
+        ondragleave="this.classList.remove('drag-over')"
+        ondrop="handleDrop(event,'${type}')">
+        <div class="uz-icon" style="width:40px;height:40px">${file?icoCheck40():icoUpload40()}</div>
+        ${file?`<div class="uz-title text-success">${esc(file.name)}</div><div class="uz-sub">${esc(t('clickToReplace'))}</div>`
+               :`<div class="uz-title">${esc(t('dragDrop'))}</div><div class="uz-sub">${esc(t('supportedFormats'))}</div>`}
+      </div>
+      <input type="file" id="${type}-fi" accept=".xlsx,.xls,.csv" style="display:none" onchange="handleFile(event,'${type}')">
+      ${sheets.length>1?`<div class="form-group mt-2">
+        <label class="label text-sm">${esc(t('selectSheet'))}</label>
+        <select class="select select-sm" onchange="onSheetChange('${type}',this.value)">
+          ${sheets.map(s=>`<option value="${esc(s)}" ${sheet===s?'selected':''}>${esc(s)}</option>`).join('')}
+        </select></div>`:''}
+      ${data.length>0?`<div class="mt-2"><span class="badge badge-success">✓ ${data.length} ${esc(t('rows'))}</span></div>`:''}
+    </div>`;
+  }
+  const cSheets=S.carrierWb?S.carrierWb.SheetNames:[];
+  const bSheets=S.boxmeWb?S.boxmeWb.SheetNames:[];
+  return`<div class="card">
+    <div class="card-header"><div class="card-title">${esc(t('step2Title'))}</div><div class="card-desc">${esc(t('step2Sub'))}</div></div>
+    <div class="card-content">
+      <div class="grid-2">${zone('carrier',S.carrierFile,cSheets,S.carrierSheet)}${zone('boxme',S.boxmeFile,bSheets,S.boxmeSheet)}</div>
+      <div class="sep"></div>
+      <div style="display:flex;justify-content:space-between">
+        <button class="btn btn-outline btn-sm" onclick="S.step=1;render()">${icoBack()} ${esc(t('back'))}</button>
+        <button class="btn btn-primary" onclick="goToStep3()" ${!S.carrierFile||!S.boxmeFile?'disabled':''}>${esc(t('next'))} ${icoNext()}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── Step 3 ── */
+function renderStep3(){
+  const fields=[
+    {k:'tracking',lbl:t('fieldTracking'),req:true},
+    {k:'bm_number',lbl:t('fieldBmNumber')},
+    {k:'shipping_fee',lbl:t('fieldShippingFee')},
+    {k:'cod_fee',lbl:t('fieldCodFee')},
+    {k:'overweight_fee',lbl:t('fieldOverweightFee')},
+    {k:'remote_fee',lbl:t('fieldRemoteFee')},
+    {k:'insurance_fee',lbl:t('fieldInsuranceFee')},
+    {k:'return_fee',lbl:t('fieldReturnFee')},
+    {k:'other_fees',lbl:t('fieldOtherFees')},
+    {k:'weight',lbl:t('fieldWeight')},
+    {k:'status',lbl:t('fieldStatus')},
+  ];
+  const bFields=fields.filter(f=>f.k!=='status'&&f.k!=='bm_number');
+  function sel(id,headers,sel){
+    return`<select class="select select-sm" id="${id}" onchange="">
+      <option value="">${esc(t('notMapped'))}</option>
+      ${headers.map(h=>`<option value="${esc(h)}" ${sel===h?'selected':''}>${esc(h)}</option>`).join('')}
+    </select>`;
+  }
+  const preview=S.carrierData.slice(0,5).map(row=>`<tr>${S.carrierHeaders.slice(0,7).map(h=>`<td>${esc(String(row[h]||'').slice(0,25))}</td>`).join('')}</tr>`).join('');
+  return`<div class="card">
+    <div class="card-header">
+      <div class="card-title">${esc(t('step3Title'))}</div>
+      <div class="card-desc">${esc(t('step3Sub'))} ${(S.learnedCarrier||S.learnedBoxme)?`<span class="learned-chip" style="margin-left:6px">✓ ${esc(t('learnedMapping'))}</span>`:''}
+      </div>
+    </div>
+    <div class="card-content">
+      <div class="grid-2">
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--primary);background:var(--primary-light);padding:5px 8px;border-radius:4px;margin-bottom:8px">${esc(t('carrierMapping'))}</div>
+          ${fields.map(f=>`<div class="map-row"><div class="map-lbl">${esc(f.lbl)}${f.req?`<span class="map-req">*</span>`:''}</div>${sel('cm_'+f.k,S.carrierHeaders,S.carrierMap[f.k]||'')}</div>`).join('')}
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;text-transform:uppercase;color:var(--success-fg);background:var(--success-light);padding:5px 8px;border-radius:4px;margin-bottom:8px">${esc(t('boxmeMapping'))}</div>
+          ${bFields.map(f=>`<div class="map-row"><div class="map-lbl">${esc(f.lbl)}${f.req?`<span class="map-req">*</span>`:''}</div>${sel('bm_'+f.k,S.boxmeHeaders,S.boxmeMap[f.k]||'')}</div>`).join('')}
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div class="form-group" style="max-width:260px">
+        <label class="label">${esc(t('feeTolerance'))}</label>
+        <input class="input input-sm" type="number" step="0.01" min="0" value="${S.tolFee}" oninput="S.tolFee=parseFloat(this.value)||0.01">
+      </div>
+      <div class="card" style="margin-top:4px">
+        <div class="card-header"><div class="card-title text-sm">${esc(t('preview'))} (${esc(t('previewFirst5'))})</div></div>
+        <div style="overflow-x:auto;padding:0">
+          <table class="table" style="font-size:11px">
+            <thead><tr>${S.carrierHeaders.slice(0,7).map(h=>`<th>${esc(h)}</th>`).join('')}</tr></thead>
+            <tbody>${preview}</tbody>
+          </table>
+        </div>
+      </div>
+      <div class="sep"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <button class="btn btn-outline btn-sm" onclick="S.step=2;render()">${icoBack()} ${esc(t('back'))}</button>
+        <button class="btn btn-primary btn-lg" id="reconcile-btn" onclick="doReconcile()">${icoPlay()} ${esc(t('startReconcile'))}</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+/* ── Step 4 (Results) ── */
+function renderStep4(){
+  const{results}=S.results;
+  const stats=calcStats(results);
+  const tab=S.resultsTab||'all';
+  const filtered={
+    all:results,
+    ok:results.filter(r=>r.status==='ok'),
+    carrier_over:results.filter(r=>r.status==='carrier_over'),
+    boxme_over:results.filter(r=>r.status==='boxme_over'),
+    missing:results.filter(r=>r.status==='missing'),
+  };
+  const display=filtered[tab]||results;
+  const tabs=[
+    {k:'all',lbl:t('tabAll'),n:results.length},
+    {k:'ok',lbl:t('tabOk'),n:filtered.ok.length},
+    {k:'carrier_over',lbl:t('tabCarrierOver'),n:filtered.carrier_over.length},
+    {k:'boxme_over',lbl:t('tabBoxmeOver'),n:filtered.boxme_over.length},
+    {k:'missing',lbl:t('tabMissing'),n:filtered.missing.length},
+  ];
+  function sbdg(s){
+    const m={ok:'badge-success',carrier_over:'badge-danger',boxme_over:'badge-warn',missing:'badge-default'};
+    const l={ok:t('statusOk'),carrier_over:t('statusCarrierOver'),boxme_over:t('statusBoxmeOver'),missing:t('statusMissing')};
+    return`<span class="badge ${m[s]||''}">${esc(l[s]||s)}</span>`;
+  }
+  const sellerCol=S.sellerField?`<th>${esc(t('seller'))}</th>`:'';
+  const rows=display.slice(0,500).map(r=>`<tr class="${r.status==='carrier_over'?'row-over':r.status==='boxme_over'?'row-under':r.status==='missing'?'row-missing':''}">
+    <td>${r.no}</td>
+    <td style="font-family:monospace;font-size:11px">${esc(r.tracking)}</td>
+    ${S.sellerField?`<td style="font-size:11px;max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(r.seller||'-')}</td>`:''}
+    <td class="col-num">${fmt(r.c_total)}</td>
+    <td class="col-num">${fmt(r.b_total)}</td>
+    <td class="col-num" style="font-weight:700;color:${r.d_total>0?'var(--danger)':r.d_total<0?'var(--warn)':'var(--success)'}">
+      ${r.d_total>0?'+':''}${fmt(r.d_total)}
+    </td>
+    <td class="col-num">${fmt(r.c_shipping_fee)}</td>
+    <td class="col-num">${fmt(r.c_overweight_fee)}</td>
+    <td>${sbdg(r.status)}</td>
+  </tr>`).join('');
+  return`
+  <div class="summary-bar">
+    <div class="summary-item"><div class="summary-value">${results.length}</div><div class="summary-lbl">${esc(t('totalProcessed'))}</div></div>
+    <div class="summary-item"><div class="summary-value text-success">${filtered.ok.length}</div><div class="summary-lbl">${esc(t('matched'))}</div></div>
+    <div class="summary-item"><div class="summary-value text-danger">${stats.carrierOverCount}</div><div class="summary-lbl">${esc(t('tabCarrierOver'))}</div><div class="summary-sub text-danger">+${fmtAmt(stats.carrierOverAmount)}</div></div>
+    <div class="summary-item"><div class="summary-value text-warn">${stats.boxmeOverCount}</div><div class="summary-lbl">${esc(t('tabBoxmeOver'))}</div><div class="summary-sub text-warn">-${fmtAmt(stats.boxmeOverAmount)}</div></div>
+    <div class="summary-item"><div class="summary-value">${stats.missingCount}</div><div class="summary-lbl">${esc(t('missing'))}</div></div>
+  </div>
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+    <div class="tabs-list" style="width:auto">
+      ${tabs.map(tb=>`<button class="tab-btn ${tab===tb.k?'active':''}" onclick="S.resultsTab='${tb.k}';render()">${esc(tb.lbl)} <span style="opacity:.6;font-size:10px">(${tb.n})</span></button>`).join('')}
+    </div>
+    <button class="btn btn-primary" onclick="showReportModal()">${icoDownload()} ${esc(t('exportReport'))}</button>
+  </div>
+  <div class="table-wrap">
+    <table class="table">
+      <thead><tr>
+        <th>#</th><th>${esc(t('tracking'))}</th>
+        ${sellerCol}
+        <th class="col-num">${esc(t('c_total'))}</th><th class="col-num">${esc(t('b_total'))}</th>
+        <th class="col-num">${esc(t('d_total'))}</th>
+        <th class="col-num">${esc(t('c_shipping_fee'))}</th><th class="col-num">${esc(t('c_overweight_fee'))}</th>
+        <th>${esc(t('status'))}</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    ${display.length>500?`<div style="padding:10px;text-align:center;font-size:11px;color:var(--muted-fg)">${t('showing500')}${display.length}</div>`:''}
+  </div>
+  <div style="display:flex;justify-content:center;margin-top:20px">
+    <button class="btn btn-outline" onclick="startNewAudit()">${icoPlus()} ${esc(t('newAudit'))}</button>
+  </div>`;
+}
+
+/* ── History View ── */
+function renderHistoryView(){
+  const h=S.history;
+  const rows=h.map(x=>`<tr>
+    <td>${fmtDate(x.date)}</td>
+    <td><span class="font-semibold">${esc(x.carrierName||x.carrierKey)}</span></td>
+    <td>${esc(x.period||'-')}</td>
+    <td class="col-num">${x.totalRows}</td>
+    <td class="col-num">${x.carrierOverCount>0?`<span class="badge badge-danger">${x.carrierOverCount}</span>`:'-'}</td>
+    <td class="col-num">${x.boxmeOverCount>0?`<span class="badge badge-warn">${x.boxmeOverCount}</span>`:'-'}</td>
+    <td class="col-num">${x.missing>0?x.missing:'-'}</td>
+    <td class="col-num" style="font-weight:700">${(x.currency||'')}${fmt(x.totalDiff)}</td>
+  </tr>`).join('');
+  return`<div class="card">
+    <div class="card-header" style="padding:14px 18px">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><div class="card-title">${esc(t('navHistory'))}</div><div class="card-desc">${h.length} ${esc(t('auditRecords'))}</div></div>
+        ${h.length>0?`<button class="btn btn-outline btn-sm" onclick="clearHistory()">${esc(t('clearHistory'))}</button>`:''}
+      </div>
+    </div>
+    <div class="card-content" style="padding:0">
+      ${h.length===0?`<div class="empty-state"><div class="empty-title">${esc(t('noHistory'))}</div><div class="empty-sub">${esc(t('noHistorySub'))}</div></div>`
+      :`<div class="table-wrap" style="border:none;border-radius:0"><table class="table">
+        <thead><tr>
+          <th>${esc(t('date'))}</th><th>${esc(t('carrier'))}</th><th>${esc(t('period'))}</th>
+          <th class="col-num">${esc(t('totalProcessed'))}</th>
+          <th class="col-num">${esc(t('carrierOver'))}</th><th class="col-num">${esc(t('boxmeOver'))}</th>
+          <th class="col-num">${esc(t('missing'))}</th><th class="col-num">${esc(t('totalDiff'))}</th>
+        </tr></thead>
+        <tbody>${rows}</tbody>
+      </table></div>`}
+    </div>
+  </div>`;
+}
+
+/* ============================================================
+   PART 10 — REPORT MODAL
+   ============================================================ */
+function showReportModal(){
+  S.reportTab='excel';S.reportLang=S.lang;
+  renderReportModal();
+  document.getElementById('modal-report').classList.remove('hidden');
+}
+function closeReportModal(){document.getElementById('modal-report').classList.add('hidden')}
+function renderReportModal(){
+  const stats=calcStats(S.results.results);
+  const data=getTemplateData();
+  const lbs=['vi','en','th'].map(l=>`<button class="lang-btn ${S.reportLang===l?'active':''}" onclick="S.reportLang='${l}';renderReportModal()" style="background:var(--muted);color:var(--fg)">${l.toUpperCase()}</button>`).join('');
+  const tabs=[{k:'excel',lbl:t('tabExcel')},{k:'email',lbl:t('tabEmail')},{k:'chat',lbl:t('tabChat')}];
+  let body='';
+  if(S.reportTab==='excel'){
+    const sheets=[t('sheetSummary'),t('sheetDiscrepancies'),t('sheetCarrierOver'),t('sheetBoxmeOver'),t('sheetMissing'),t('sheetAll')];
+    const hasSeller=!!S.sellerField;
+    body=`
+    <div class="card mb-4"><div class="card-content">
+      <div style="font-size:13px;font-weight:600;margin-bottom:10px">${esc(t('excelWillInclude'))}</div>
+      ${sheets.map(s=>`<div style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px"><span style="color:var(--success)">✓</span>${esc(s)}</div>`).join('')}
+      ${hasSeller?`<div style="display:flex;align-items:center;gap:6px;font-size:13px;margin-bottom:4px"><span style="color:var(--primary)">👥</span>${esc(t('sheetPerCustomer'))} (${esc(S.sellerField)})</div>`:''}
+      <div class="sep"></div>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center">
+        <div><div style="font-size:22px;font-weight:800;color:var(--danger)">${stats.carrierOverCount}</div><div class="text-muted text-xs">${esc(t('tabCarrierOver'))}</div><div style="font-size:11px;font-weight:700;color:var(--danger)">+${fmtAmt(stats.carrierOverAmount)}</div></div>
+        <div><div style="font-size:22px;font-weight:800;color:var(--warn)">${stats.boxmeOverCount}</div><div class="text-muted text-xs">${esc(t('tabBoxmeOver'))}</div><div style="font-size:11px;font-weight:700;color:var(--warn)">-${fmtAmt(stats.boxmeOverAmount)}</div></div>
+        <div><div style="font-size:22px;font-weight:800">${stats.missingCount}</div><div class="text-muted text-xs">${esc(t('tabMissing'))}</div></div>
+      </div>
+    </div></div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:8px">${esc(t('filterOptions'))}</div>
+    <div class="export-filters">
+      <button class="export-filter-btn" onclick="generateExcel('all')">${icoDownload()} ${esc(t('exportAll'))}</button>
+      <button class="export-filter-btn" onclick="generateExcel('discrepancy')">${esc(t('exportDiscrepancy'))}</button>
+      <button class="export-filter-btn" onclick="generateExcel('carrier_over')" style="color:var(--danger);border-color:var(--danger)">${esc(t('exportCarrierOver'))}</button>
+      <button class="export-filter-btn" onclick="generateExcel('boxme_over')" style="color:var(--warn);border-color:var(--warn)">${esc(t('exportBoxmeOver'))}</button>
+      ${hasSeller?`<button class="export-filter-btn" onclick="showCustomerExport()" style="color:var(--primary);border-color:var(--primary)">👥 ${esc(t('exportByCustomer'))}</button>`:''}
+    </div>
+    ${hasSeller?`<div id="customer-export-panel" class="hidden card mt-2"><div class="card-content">
+      <div style="font-size:12px;font-weight:600;margin-bottom:8px">👥 ${esc(t('exportByCustomer'))} — ${esc(S.sellerField)}</div>
+      <div class="export-filters">
+        <button class="export-filter-btn" onclick="generateExcelByCustomer('all')">${esc(t('exportAll'))}</button>
+        <button class="export-filter-btn" onclick="generateExcelByCustomer('discrepancy')">${esc(t('exportDiscrepancy'))}</button>
+        <button class="export-filter-btn" onclick="generateExcelByCustomer('carrier_over')" style="color:var(--danger)">${esc(t('exportCarrierOver'))}</button>
+        <button class="export-filter-btn" onclick="generateExcelByCustomer('boxme_over')" style="color:var(--warn)">${esc(t('exportBoxmeOver'))}</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted-fg)">${esc(t('tabPerCustomer'))}: ${esc(t('sheetPerCustomer'))}</div>
+    </div></div>`:''}
+    <button class="btn btn-primary w-full btn-lg mt-3" onclick="generateExcel('all')">${icoDownload()} ${esc(t('downloadExcel'))}</button>`;
+  }else if(S.reportTab==='email'){
+    const tpl=(MSG.email[S.reportLang]||MSG.email.en);
+    const subj=fillTpl(tpl.subject,data),bod=fillTpl(tpl.body,data);
+    body=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="font-semibold text-sm">${esc(t('language'))}:</div>
+      <div class="lang-sw">${lbs}</div>
+    </div>
+    <div class="form-group">
+      <label class="label">${esc(t('emailSubject'))}</label>
+      <div style="position:relative">
+        <input class="input" id="eml-subj" value="${esc(subj)}" readonly>
+        <button class="btn btn-sm btn-outline" style="position:absolute;right:4px;top:4px" onclick="cpText('eml-subj')">${icoCopy()} ${esc(t('copyText'))}</button>
+      </div>
+    </div>
+    <div class="form-group">
+      <label class="label">${esc(t('emailBody'))}</label>
+      <div style="position:relative">
+        <textarea class="textarea" id="eml-body" rows="11" readonly>${esc(bod)}</textarea>
+        <button class="btn btn-sm btn-outline" style="position:absolute;right:8px;top:8px" onclick="cpText('eml-body')">${icoCopy()} ${esc(t('copyText'))}</button>
+      </div>
+    </div>`;
+  }else{
+    const tpl=MSG.chat[S.reportLang]||MSG.chat.en;
+    const msg=fillTpl(tpl,data);
+    body=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px">
+      <div class="font-semibold text-sm">${esc(t('language'))}:</div>
+      <div class="lang-sw">${lbs}</div>
+    </div>
+    <div class="form-group">
+      <label class="label">${esc(t('chatMessage'))}</label>
+      <div style="position:relative">
+        <textarea class="textarea" id="chat-msg" rows="8" readonly>${esc(msg)}</textarea>
+        <button class="btn btn-sm btn-outline" style="position:absolute;right:8px;top:8px" onclick="cpText('chat-msg')">${icoCopy()} ${esc(t('copyText'))}</button>
+      </div>
+    </div>`;
+  }
+  document.getElementById('modal-report').innerHTML=`<div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">${icoDownload()} ${esc(t('exportTitle'))}</div>
+      <button class="btn btn-ghost btn-icon" onclick="closeReportModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="tabs-list mb-4">${tabs.map(tb=>`<button class="tab-btn ${S.reportTab===tb.k?'active':''}" onclick="S.reportTab='${tb.k}';renderReportModal()">${esc(tb.lbl)}</button>`).join('')}</div>
+      ${body}
+    </div>
+    <div class="modal-footer"><button class="btn btn-outline" onclick="closeReportModal()">${esc(t('close'))}</button></div>
+  </div>`;
+}
+function cpText(id){
+  const el=document.getElementById(id);
+  const txt=el.value||el.innerText;
+  navigator.clipboard.writeText(txt).then(()=>toast(t('copied'),'success')).catch(()=>{el.select();document.execCommand('copy');toast(t('copied'),'success');});
+}
+
+/* ============================================================
+   PART 11 — EXCEL EXPORT
+   ============================================================ */
+function generateExcel(filter='all'){
+  const{results}=S.results;
+  const stats=calcStats(results);
+  const carrier=S.carrier?(S.carrier.name||S.carrierKey):'Unknown';
+  const period=S.period||'Unknown';
+  const sLabels={ok:t('statusOk'),carrier_over:t('statusCarrierOver'),boxme_over:t('statusBoxmeOver'),missing:t('statusMissing')};
+  const wb=XLSX.utils.book_new();
+  // Sheet 1: Summary
+  const sum=[
+    [t('reportTitle')],[''],
+    [t('carrier')+':',carrier,t('period')+':',period],
+    [t('generatedAt')+':',new Date().toLocaleString()],[''],
+    [t('totalProcessed'),results.length],
+    [t('matched'),S.results.matched],
+    [t('discrepancies'),stats.discrepancyCount],
+    [t('carrierOver'),stats.carrierOverCount,t('amount'),stats.carrierOverAmount],
+    [t('boxmeOver'),stats.boxmeOverCount,t('amount'),stats.boxmeOverAmount],
+    [t('missing'),stats.missingCount],
+    [t('totalDiff'),stats.totalDiff],
+  ];
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(sum),t('sheetSummary'));
+  // Detail header (with optional seller column)
+  const selHdr=S.sellerField?[t('seller')]:[];
+  const hdr=['#',t('tracking'),t('bmNumber'),...selHdr,
+    t('c_shipping_fee'),t('c_cod_fee'),t('c_overweight_fee'),t('c_remote_fee'),t('c_insurance_fee'),t('c_return_fee'),t('c_other_fees'),t('c_total'),
+    t('b_shipping_fee'),t('b_cod_fee'),t('b_overweight_fee'),t('b_remote_fee'),t('b_insurance_fee'),t('b_return_fee'),t('b_other_fees'),t('b_total'),
+    t('d_shipping_fee'),t('d_overweight_fee'),t('d_remote_fee'),t('d_other_fees'),t('d_total'),
+    t('status')];
+  function buildRows(rows){
+    return rows.map((r,i)=>{
+      const base=AuditCore.buildExportRow(r,i,sLabels);
+      // Insert seller after col index 2 (tracking, bmNumber)
+      if(S.sellerField)base.splice(2,0,r.seller||'');
+      return base;
+    });
+  }
+  function addSheet(rows,name){XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hdr,...buildRows(rows)]),name);}
+  // Determine which sheets to include based on filter
+  if(filter==='all'){
+    addSheet(results.filter(r=>r.status!=='ok'),t('sheetDiscrepancies'));
+    addSheet(results.filter(r=>r.status==='carrier_over'),t('sheetCarrierOver'));
+    addSheet(results.filter(r=>r.status==='boxme_over'),t('sheetBoxmeOver'));
+    addSheet(results.filter(r=>r.status==='missing'),t('sheetMissing'));
+    addSheet(results,t('sheetAll'));
+  }else if(filter==='discrepancy'){
+    addSheet(results.filter(r=>r.status!=='ok'),t('sheetDiscrepancies'));
+  }else if(filter==='carrier_over'){
+    addSheet(results.filter(r=>r.status==='carrier_over'),t('sheetCarrierOver'));
+  }else if(filter==='boxme_over'){
+    addSheet(results.filter(r=>r.status==='boxme_over'),t('sheetBoxmeOver'));
+  }
+  const suffix=filter==='all'?'':('_'+filter);
+  XLSX.writeFile(wb,`Boxme_Audit_${carrier.replace(/\s+/g,'_')}_${period.replace('/','_')}${suffix}_${Date.now()}.xlsx`);
+  toast(t('downloadStarted'),'success');
+}
+function generateExcelByCustomer(filter='all'){
+  if(!S.sellerField){toast(t('noSellerColumn'),'error');return;}
+  const{results}=S.results;
+  const carrier=S.carrier?(S.carrier.name||S.carrierKey):'Unknown';
+  const period=S.period||'Unknown';
+  const sLabels={ok:t('statusOk'),carrier_over:t('statusCarrierOver'),boxme_over:t('statusBoxmeOver'),missing:t('statusMissing')};
+  // Filter rows by status filter
+  let filtered=results;
+  if(filter==='discrepancy')filtered=results.filter(r=>r.status!=='ok');
+  else if(filter==='carrier_over')filtered=results.filter(r=>r.status==='carrier_over');
+  else if(filter==='boxme_over')filtered=results.filter(r=>r.status==='boxme_over');
+  // Group by seller
+  const groups={};
+  filtered.forEach(r=>{const s=r.seller||'(unknown)';if(!groups[s])groups[s]=[];groups[s].push(r);});
+  const sellers=Object.keys(groups).sort();
+  if(!sellers.length){toast(t('noSellerColumn'),'error');return;}
+  const selHdr=[t('seller')];
+  const hdr=['#',t('tracking'),t('bmNumber'),...selHdr,
+    t('c_shipping_fee'),t('c_cod_fee'),t('c_overweight_fee'),t('c_remote_fee'),t('c_insurance_fee'),t('c_return_fee'),t('c_other_fees'),t('c_total'),
+    t('b_shipping_fee'),t('b_cod_fee'),t('b_overweight_fee'),t('b_remote_fee'),t('b_insurance_fee'),t('b_return_fee'),t('b_other_fees'),t('b_total'),
+    t('d_shipping_fee'),t('d_overweight_fee'),t('d_remote_fee'),t('d_other_fees'),t('d_total'),
+    t('status')];
+  function buildRows(rows){
+    return rows.map((r,i)=>{const base=AuditCore.buildExportRow(r,i,sLabels);base.splice(2,0,r.seller||'');return base;});
+  }
+  const wb=XLSX.utils.book_new();
+  // Summary sheet: list of sellers with their stats
+  const sumHdr=[t('seller'),t('totalProcessed'),t('discrepancies'),t('carrierOver'),t('amount'),t('boxmeOver'),t('amount'),t('missing'),t('totalDiff')];
+  const sumRows=sellers.map(s=>{
+    const st=calcStats(groups[s]);
+    return[s,groups[s].length,st.discrepancyCount,st.carrierOverCount,st.carrierOverAmount,st.boxmeOverCount,st.boxmeOverAmount,st.missingCount,st.totalDiff];
+  });
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([sumHdr,...sumRows]),t('sheetSummary'));
+  // One sheet per seller (truncate name to 28 chars for Excel limit)
+  sellers.forEach(s=>{
+    const sheetName=s.slice(0,28).replace(/[:\\/?*[\]]/g,'_');
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([hdr,...buildRows(groups[s])]),sheetName);
+  });
+  const suffix=filter==='all'?'':('_'+filter);
+  XLSX.writeFile(wb,`Boxme_ByCustomer_${carrier.replace(/\s+/g,'_')}_${period.replace('/','_')}${suffix}_${Date.now()}.xlsx`);
+  toast(t('downloadStarted'),'success');
+}
+function showCustomerExport(){
+  const p=document.getElementById('customer-export-panel');
+  if(p)p.classList.toggle('hidden');
+}
+
+/* ============================================================
+   PART 12 — EVENT HANDLERS
+   ============================================================ */
+function startNewAudit(){
+  Object.assign(S,{step:1,carrier:null,carrierKey:null,period:'',
+    carrierFile:null,boxmeFile:null,carrierWb:null,boxmeWb:null,
+    carrierSheet:'',boxmeSheet:'',carrierData:[],boxmeData:[],
+    carrierHeaders:[],boxmeHeaders:[],carrierMap:{},boxmeMap:{},
+    learnedCarrier:false,learnedBoxme:false,results:null,resultsTab:'all',view:'audit'});
+  render();
+}
+function pickCarrier(key){
+  S.carrierKey=key;
+  S.carrier=S.templates[key];
+  if(!S.period)S.period=currentPeriod();
+  const guessed=guessCountry(key,S.carrier);
+  S.country=guessed;
+  S.currency=COUNTRY_CURRENCY[guessed]||'฿';
+  S.step=2;render();
+}
+function addCustom(){
+  const n=(document.getElementById('custom-name').value||'').trim();
+  if(!n)return;
+  S.carrierKey=n.toUpperCase();
+  S.carrier={name:n,carrierMapping:{},boxmeMapping:{},carrierHints:{}};
+  S.currency='฿';
+  if(!S.period)S.period=currentPeriod();
+  S.step=2;render();
+}
+function filterCarriers(q){
+  const ql=q.toLowerCase();
+  document.querySelectorAll('.carrier-card').forEach(el=>{
+    el.style.display=el.textContent.toLowerCase().includes(ql)?'':'none';
+  });
+}
+function clearHistory(){
+  if(!confirm(t('confirmClearHistory')))return;
+  S.history=[];localStorage.removeItem('ba_history');render();
+}
+function exportTpl(){
+  const b=new Blob([JSON.stringify(S.templates,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download='carrier_templates_'+Date.now()+'.json';a.click();
+}
+function importTpl(ev){
+  const f=ev.target.files[0];if(!f)return;
+  const fr=new FileReader();
+  fr.onload=e=>{try{const j=JSON.parse(e.target.result);delete j._meta;S.templates={...S.templates,...j};toast(t('templatesImported'),'success');render();}catch{toast(t('errorParseFile'),'error');}};
+  fr.readAsText(f);
+}
+// Close modal on overlay click
+document.getElementById('modal-report').addEventListener('click',function(e){if(e.target===this)closeReportModal();});
+
+/* ============================================================
+   PART 13 — SVG ICONS
+   ============================================================ */
+function icoHome(){return`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>`}
+function icoAudit(){return`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>`}
+function icoHistory(){return`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>`}
+function icoSettings(){return`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>`}
+function icoUpload40(){return`<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`}
+function icoCheck40(){return`<svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="color:var(--success)"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>`}
+function icoDownload(){return`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>`}
+function icoUpload(){return`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>`}
+function icoPlus(){return`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>`}
+function icoBack(){return`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>`}
+function icoNext(){return`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>`}
+function icoPlay(){return`<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`}
+function icoAlert(){return`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`}
+function icoTrendUp(){return`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/></svg>`}
+function icoMissing(){return`<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>`}
+function icoCopy(){return`<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>`}
+
+/* ============================================================
+   PART 14 — INIT
+   ============================================================ */
+async function init(){
+  loadHistory();
+  await loadTemplates();
+  render();
+}
+init();
+
+/* ── Templates View ── */
+function renderTemplatesView(){
+  const keys=Object.keys(S.templates);
+  const rows=keys.map(k=>{
+    const tpl=S.templates[k],learned=loadLearnedMap(k);
+    return`<tr>
+      <td><span class="font-semibold">${esc(k)}</span></td>
+      <td>${esc(tpl.name||'-')}</td>
+      <td style="font-family:monospace;font-size:11px">${esc(tpl.carrierMapping&&tpl.carrierMapping.tracking||'-')}</td>
+      <td style="font-size:11px">${esc((tpl.carrierSheetHint||[]).join(', ')||'-')}</td>
+      <td>${learned?`<span class="learned-chip">✓ ${fmtDate(learned.ts)}</span>`:`<span class="badge badge-default">${esc(t('notLearned'))}</span>`}</td>
+    </tr>`;
+  }).join('');
+  return`
+  <div class="card mb-4"><div class="card-header"><div class="card-title">${esc(t('navTemplates'))}</div><div class="card-desc">${esc(t('templatesSub'))}</div></div>
+    <div class="card-content">
+      <div style="display:flex;gap:8px">
+        <button class="btn btn-outline btn-sm" onclick="exportTpl()">${icoDownload()} ${esc(t('exportTemplates'))}</button>
+        <button class="btn btn-outline btn-sm" onclick="document.getElementById('import-tpl').click()">${icoUpload()} ${esc(t('importTemplates'))}</button>
+        <input type="file" id="import-tpl" accept=".json" style="display:none" onchange="importTpl(event)">
+      </div>
+    </div>
+  </div>
+  <div class="table-wrap"><table class="table">
+    <thead><tr>
+      <th>${esc(t('carrier'))}</th><th>${esc(t('fullName'))}</th><th>${esc(t('trackingCol'))}</th>
+      <th>${esc(t('sheetHint'))}</th><th>${esc(t('learnedMapping'))}</th>
+    </tr></thead>
+    <tbody>${rows}</tbody>
+  </table></div>`;
+}
+</script>
+</body>
+</html>

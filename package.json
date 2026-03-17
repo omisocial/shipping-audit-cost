@@ -1,0 +1,28 @@
+{
+  "name": "boxme-micro-tools",
+  "version": "1.0.0",
+  "description": "",
+  "main": "carrier_audit_core.js",
+  "scripts": {
+    "test": "vitest run --config vitest.config.mjs",
+    "test:watch": "vitest --config vitest.config.mjs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/omisocial/shipping-audit-cost.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/omisocial/shipping-audit-cost/issues"
+  },
+  "homepage": "https://github.com/omisocial/shipping-audit-cost#readme",
+  "dependencies": {
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.0"
+  }
+}
