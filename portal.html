@@ -34,11 +34,11 @@ const LANG_PORTAL = {
     logoSub: 'Bộ công cụ nội bộ',
     carrierAuditTitle: 'Đối soát chi phí vận chuyển',
     carrierAuditDesc: 'Tự động so sánh hóa đơn hãng vận chuyển vs hệ thống Boxme. Hỗ trợ 20+ hãng, nhiều quốc gia.',
+    materialPlannerTitle: 'Dự báo vật liệu (Material Smart)',
+    materialPlannerDesc: 'Dự báo nhu cầu vật liệu đóng gói, tự động nhận dạng cột, xuất PO theo kho hàng.',
     comingSoon: 'Sắp ra mắt',
-    placeholderTool1: 'Kiểm tra tồn kho',
-    placeholderTool1Desc: 'Kiểm tra và đối soát tồn kho kho hàng Boxme theo kỳ.',
-    placeholderTool2: 'Phân tích đơn hàng',
-    placeholderTool2Desc: 'Dashboard phân tích xu hướng đơn hàng, tỉ lệ giao thành công.',
+    placeholderTool1: 'Phân tích đơn hàng',
+    placeholderTool1Desc: 'Dashboard phân tích xu hướng đơn hàng, tỉ lệ giao thành công.',
     logout: 'Đăng xuất',
     language: 'Ngôn ngữ',
   },
@@ -49,11 +49,11 @@ const LANG_PORTAL = {
     logoSub: 'Internal Tool Suite',
     carrierAuditTitle: 'Carrier Cost Audit',
     carrierAuditDesc: 'Automatically compare carrier invoices vs Boxme system records. Supports 20+ carriers, multi-country.',
+    materialPlannerTitle: 'Material Planner (Material Smart)',
+    materialPlannerDesc: 'Forecast packaging material demand, auto column detection, generate PO by warehouse.',
     comingSoon: 'Coming Soon',
-    placeholderTool1: 'Inventory Check',
-    placeholderTool1Desc: 'Audit and reconcile Boxme warehouse inventory by period.',
-    placeholderTool2: 'Order Analytics',
-    placeholderTool2Desc: 'Dashboard for order trends, delivery success rates analysis.',
+    placeholderTool1: 'Order Analytics',
+    placeholderTool1Desc: 'Dashboard for order trends, delivery success rates analysis.',
     logout: 'Logout',
     language: 'Language',
   },
@@ -64,11 +64,11 @@ const LANG_PORTAL = {
     logoSub: 'เครื่องมือภายใน',
     carrierAuditTitle: 'ตรวจสอบค่าขนส่ง',
     carrierAuditDesc: 'เปรียบเทียบใบแจ้งหนี้สายส่งกับระบบ Boxme อัตโนมัติ รองรับ 20+ สายส่ง หลายประเทศ',
+    materialPlannerTitle: 'พยากรณ์วัสดุ (Material Smart)',
+    materialPlannerDesc: 'พยากรณ์ความต้องการวัสดุบรรจุภัณฑ์ ตรวจจับคอลัมน์อัตโนมัติ สร้าง PO ตามคลังสินค้า',
     comingSoon: 'เร็วๆ นี้',
-    placeholderTool1: 'ตรวจสอบสต๊อก',
-    placeholderTool1Desc: 'ตรวจสอบและกระทบยอดสต๊อกคลังสินค้า Boxme ตามงวด',
-    placeholderTool2: 'วิเคราะห์ออเดอร์',
-    placeholderTool2Desc: 'แดชบอร์ดวิเคราะห์แนวโน้มออเดอร์ อัตราความสำเร็จในการจัดส่ง',
+    placeholderTool1: 'วิเคราะห์ออเดอร์',
+    placeholderTool1Desc: 'แดชบอร์ดวิเคราะห์แนวโน้มออเดอร์ อัตราความสำเร็จในการจัดส่ง',
     logout: 'ออกจากระบบ',
     language: 'ภาษา',
   }
@@ -93,6 +93,7 @@ function doLogout() {
 // SVG icons
 const icoHome = () => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>';
 const icoAudit = () => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>';
+const icoPlanner = () => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>';
 const icoLogout = () => '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>';
 
 function render() {
@@ -107,6 +108,7 @@ function render() {
     <div class="sb-nav">
       <a class="nav-item active" href="portal.html">${icoHome()}<span>${t('navPortal')}</span></a>
       <a class="nav-item" href="tools/carrier-audit/index.html">${icoAudit()}<span>${t('carrierAuditTitle')}</span></a>
+      <a class="nav-item" href="tools/material-planner/index.html">${icoPlanner()}<span>${t('materialPlannerTitle')}</span></a>
     </div>
     <div class="sb-settings">
       <div class="sb-setting-row">
@@ -135,20 +137,20 @@ function render() {
         <div class="tool-card-desc">${t('carrierAuditDesc')}</div>
         <div class="tool-card-badge"><span class="badge badge-success">● Active</span></div>
       </a>
-      <div class="tool-card disabled">
-        <div class="tool-card-icon" style="background:var(--muted);color:var(--muted-fg)">
-          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      <a class="tool-card" href="tools/material-planner/index.html">
+        <div class="tool-card-icon" style="background:var(--success-light);color:var(--success)">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
         </div>
-        <div class="tool-card-title">${t('placeholderTool1')}</div>
-        <div class="tool-card-desc">${t('placeholderTool1Desc')}</div>
-        <div class="tool-card-badge"><span class="badge badge-default">${t('comingSoon')}</span></div>
-      </div>
+        <div class="tool-card-title">${t('materialPlannerTitle')}</div>
+        <div class="tool-card-desc">${t('materialPlannerDesc')}</div>
+        <div class="tool-card-badge"><span class="badge badge-success">● Active</span></div>
+      </a>
       <div class="tool-card disabled">
         <div class="tool-card-icon" style="background:var(--muted);color:var(--muted-fg)">
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
         </div>
-        <div class="tool-card-title">${t('placeholderTool2')}</div>
-        <div class="tool-card-desc">${t('placeholderTool2Desc')}</div>
+        <div class="tool-card-title">${t('placeholderTool1')}</div>
+        <div class="tool-card-desc">${t('placeholderTool1Desc')}</div>
         <div class="tool-card-badge"><span class="badge badge-default">${t('comingSoon')}</span></div>
       </div>
     </div>

@@ -578,6 +578,7 @@ function renderSidebar(){
   const langSel=`<select class="sb-select" onchange="setLang(this.value)">${[['vi','🇻🇳 VI'],['en','🌐 EN'],['th','🇹🇭 TH']].map(([v,l])=>`<option value="${v}"${S.lang===v?' selected':''}>${l}</option>`).join('')}</select>`;
   const countrySel=`<select class="sb-select" onchange="setCountry(this.value)">${Object.entries(COUNTRY_FLAGS).map(([c,f])=>`<option value="${c}"${S.country===c?' selected':''}>${f} ${c} (${COUNTRY_CURRENCY[c]||''})</option>`).join('')}</select>`;
   const icoPortal=()=>'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg>';
+  const icoMPlanner=()=>'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>';
   const icoLogout2=()=>'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>';
   document.getElementById('sidebar').innerHTML=`
     <div class="sb-logo">
@@ -586,6 +587,7 @@ function renderSidebar(){
     </div>
     <nav class="sb-nav">
       <a class="nav-item" href="../../portal.html">${icoPortal()}<span>Portal</span></a>
+      <a class="nav-item" href="../material-planner/index.html">${icoMPlanner()}<span>Material Planner</span></a>
       <div style="height:1px;background:var(--border);margin:6px 8px"></div>
       ${nav}
     </nav>

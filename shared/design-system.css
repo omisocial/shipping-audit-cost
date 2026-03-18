@@ -247,6 +247,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Inter',sans-serif;
 .login-footer{text-align:center;padding:0 32px 24px}
 .login-footer-text{font-size:11px;color:var(--muted-fg)}
 
+/* ── Utilities ── */
+.hidden{display:none!important}
+
 /* ── Responsive ── */
 @media(max-width:768px){
   .sidebar{transform:translateX(-100%)}

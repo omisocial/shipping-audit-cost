@@ -5,6 +5,7 @@
   "main": "carrier_audit_core.js",
   "scripts": {
     "test": "vitest run --config vitest.config.mjs",
+    "test:gate": "vitest run --config vitest.config.mjs --reporter=verbose",
     "test:watch": "vitest --config vitest.config.mjs"
   },
   "repository": {
